@@ -3,6 +3,7 @@ import json
 import pandas as pd
 import glob
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 import mpld3
 from scipy import signal
 
@@ -175,33 +176,51 @@ class TrialObject:
         for i in range(len(walking_keys)):
             data = self.markerless_data[walking_keys[i]]
             heel = data[['R_HEELX','R_HEELY','R_HEELZ','L_HEELX','L_HEELY','L_HEELZ']]
-            f,ax=plt.subplots(nrows=3,ncols=2)
-            ax[0][0].plot(heel['L_HEELX'].values)
-            peaks = signal.find_peaks(heel['L_HEELX'])
-            ax[0][0].plot(peaks[0],heel['L_HEELX'].values[peaks[0]],'x')
+            f = plt.figure()
+            gs= GridSpec(2,2,figure=f)
+            ax1 = f.add_subplot(gs[0,0])
+            ax2 = f.add_subplot(gs[0,1])
+            ax3 = f.add_subplot(gs[1,:])
 
-            ax[1][0].plot(heel['L_HEELY'].values)
-            peaks = signal.find_peaks(heel['L_HEELY'])
-            ax[1][0].plot(peaks[0],heel['L_HEELY'].values[peaks[0]],'x')
+            ax1.plot(heel['L_HEELX'].values,heel['L_HEELZ'].values)
+            peaks = signal.find_peaks(-1*heel['L_HEELZ'],threshold = -0.025,width=10)
+            ax1.plot(heel['L_HEELX'].values[peaks[0]],heel['L_HEELZ'].values[peaks[0]],'rx')
+            ax3.plot(heel['L_HEELX'].values,heel['L_HEELY'].values)
+            ax3.plot(heel['L_HEELX'].values[peaks[0]],heel['L_HEELY'].values[peaks[0]],'rx')
+            ax1.set_ylabel('Lab Z (m)')
 
-            ax[2][0].plot(heel['L_HEELZ'].values)
-            peaks = signal.find_peaks(-1*heel['L_HEELZ'],threshold = -0.025,width=20)
-            ax[2][0].plot(peaks[0],heel['L_HEELZ'].values[peaks[0]],'x')
+            ax2.plot(heel['R_HEELZ'].values,'g')
+            peaks = signal.find_peaks(-1*heel['R_HEELZ'],threshold = -0.025,width = 10)
+            ax2.plot(peaks[0],heel['R_HEELZ'].values[peaks[0]],'rx')
+            ax3.plot(heel['R_HEELX'].values,heel['R_HEELY'].values,'g')
+            ax3.plot(heel['R_HEELX'].values[peaks[0]],heel['R_HEELY'].values[peaks[0]],'rx')
+            ax3.set_xlabel('Lab X (m)')
+            ax3.set_ylabel('Lab Y (m)')
+            ax3.legend(['Left','Heel Down','Right'])
 
-            ax[0][1].plot(heel['R_HEELX'].values)
-            peaks = signal.find_peaks(heel['R_HEELX'])
-            ax[0][1].plot(peaks[0],heel['R_HEELX'].values[peaks[0]],'x')
+            #TODO: figure out how to find peaks when scaled by x
+            # ax[0][0].plot(heel['L_HEELX'].values)
+            # peaks = signal.find_peaks(heel['L_HEELX'])
+            # ax[0][0].plot(peaks[0],heel['L_HEELX'].values[peaks[0]],'x')
 
-            ax[1][1].plot(heel['R_HEELY'].values)
-            peaks = signal.find_peaks(heel['R_HEELY'])
-            ax[1][1].plot(peaks[0],heel['R_HEELY'].values[peaks[0]],'x')
+            # ax[1][0].plot(heel['L_HEELY'].values)
+            # peaks = signal.find_peaks(heel['L_HEELY'])
+            # ax[1][0].plot(peaks[0],heel['L_HEELY'].values[peaks[0]],'x')
 
-            ax[2][1].plot(heel['R_HEELZ'].values)
-            peaks = signal.find_peaks(-1*heel['R_HEELZ'],threshold = -0.025,width = 20)
-            ax[2][1].plot(peaks[0],heel['R_HEELZ'].values[peaks[0]],'x')
+            # ax[0][1].plot(heel['R_HEELX'].values)
+            # peaks = signal.find_peaks(heel['R_HEELX'])
+            # ax[0][1].plot(peaks[0],heel['R_HEELX'].values[peaks[0]],'x')
+
+            # ax[1][1].plot(heel['R_HEELY'].values)
+            # peaks = signal.find_peaks(heel['R_HEELY'])
+            # ax[1][1].plot(peaks[0],heel['R_HEELY'].values[peaks[0]],'x')
+
+            # ax[2][1].plot(heel['R_HEELZ'].values)
+            # peaks = signal.find_peaks(-1*heel['R_HEELZ'],threshold = -0.025,width = 20)
+            # ax[2][1].plot(peaks[0],heel['R_HEELZ'].values[peaks[0]],'x')
 
             plt.show()
-            del f,ax
+            del f,ax1,ax2,ax3
             plt.close()
 
     def create_tandem_plots(self):
