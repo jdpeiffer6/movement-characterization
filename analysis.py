@@ -11,7 +11,7 @@ trial_obj = TrialObject(path_to_trial)
 # %%
 data = trial_obj.markerless_data['Gait Markerless 1']
 pelvisz = data['Pelvis_WRT_LabZ']
-dpelvisz = derivative(pelvisz)
+# dpelvisz = derivative(pelvisz)
 # %%
 import numpy as np
 from rms import rms

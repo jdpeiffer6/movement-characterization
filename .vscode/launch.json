@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "external terminal",
+            "type": "python",
+            "request": "launch",
+            "program": "C:\\Users\\jd\\Documents\\movement-characterization\\analysis.py",
+            "console": "externalTerminal"
+        },
+        {
             "name": "analysis",
             "type": "python",
             "request": "launch",

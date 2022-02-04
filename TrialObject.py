@@ -4,13 +4,16 @@ import pandas as pd
 import glob
 import matplotlib.pyplot as plt
 import mpld3
+from scipy import signal
 
 class TrialObject:
     def __init__(self, path):
         # this path will be the path to each subject's folder and the date format for their session
         # for instance "...\\002\\2022-01-28"
         print("loading data subject %s for date %s\n" % (path[-14:-11], path[-10:]))
-        
+        #patient metrics
+        self.height = 1.7 # meters
+
         #variable assignments
         self.trial_path = path
         self.id = path[-14:-11]
@@ -27,8 +30,9 @@ class TrialObject:
 
         self.load_markerless()
         self.load_markers()
-        #self.create_walking_plots()
-        self.create_tandem_plots()
+        # self.create_walking_plots()
+        self.analyze_walking()
+        # self.create_tandem_plots()
 
     def load_markerless(self):
         self.markerless_data = {}
@@ -162,6 +166,43 @@ class TrialObject:
         HTML_FILE.close()
 
         print("Completed walking html export")
+
+    def analyze_walking(self):
+        self.calculate_step_width()
+
+    def calculate_step_width(self):
+        walking_keys = self.markerless_task_labels[self.markerless_task_labels['Task'] == 'Walking']['Name']
+        for i in range(len(walking_keys)):
+            data = self.markerless_data[walking_keys[i]]
+            heel = data[['R_HEELX','R_HEELY','R_HEELZ','L_HEELX','L_HEELY','L_HEELZ']]
+            f,ax=plt.subplots(nrows=3,ncols=2)
+            ax[0][0].plot(heel['L_HEELX'].values)
+            peaks = signal.find_peaks(heel['L_HEELX'])
+            ax[0][0].plot(peaks[0],heel['L_HEELX'].values[peaks[0]],'x')
+
+            ax[1][0].plot(heel['L_HEELY'].values)
+            peaks = signal.find_peaks(heel['L_HEELY'])
+            ax[1][0].plot(peaks[0],heel['L_HEELY'].values[peaks[0]],'x')
+
+            ax[2][0].plot(heel['L_HEELZ'].values)
+            peaks = signal.find_peaks(-1*heel['L_HEELZ'],threshold = -0.025,width=20)
+            ax[2][0].plot(peaks[0],heel['L_HEELZ'].values[peaks[0]],'x')
+
+            ax[0][1].plot(heel['R_HEELX'].values)
+            peaks = signal.find_peaks(heel['R_HEELX'])
+            ax[0][1].plot(peaks[0],heel['R_HEELX'].values[peaks[0]],'x')
+
+            ax[1][1].plot(heel['R_HEELY'].values)
+            peaks = signal.find_peaks(heel['R_HEELY'])
+            ax[1][1].plot(peaks[0],heel['R_HEELY'].values[peaks[0]],'x')
+
+            ax[2][1].plot(heel['R_HEELZ'].values)
+            peaks = signal.find_peaks(-1*heel['R_HEELZ'],threshold = -0.025,width = 20)
+            ax[2][1].plot(peaks[0],heel['R_HEELZ'].values[peaks[0]],'x')
+
+            plt.show()
+            del f,ax
+            plt.close()
 
     def create_tandem_plots(self):
         self.colors = ['#130AF1','#17ACE8','#1BD9DE']
