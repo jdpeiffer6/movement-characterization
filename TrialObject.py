@@ -23,23 +23,27 @@ class TrialObject:
         self.date = path[-10:]
         # this uses the fact that all markerless will be 001 and all marker will be 002
         self.sessions = [path + '_001', path + '_002']
-        for session in self.sessions:
-            if not os.path.isdir(session):
-                raise Exception("could not find both paths for subject %s"%self.id)
-        self.markerless_folder = self.sessions[0]
-        self.marker_folder = self.sessions[1]
-        self.markerless_fs = 80
-        self.marker_fs = 100
+        if os.path.isdir(self.sessions[0]):
+            self.markerless_folder = self.sessions[0]
+            self.markerless_fs = 80
+            # self.create_walking_plots()
+            self.analyze_walking()
+            # self.create_tandem_plots()
+        else:
+            print("Could not find markerless session for %s"% self.id)
+        if os.path.isdir(self.sessions[1]):
+            self.marker_folder = self.sessions[1]
+            self.marker_fs = 100
+            self.load_markers()
+            self.analyze_9_hole()
+        else:
+            print("Could not find marker session for %s"% self.id)
+                
 
         self.step_width = []   #TODO: delete these
         self.step_length = []
         self.step_height = []
 
-        self.load_markerless()
-        self.load_markers()
-        # self.create_walking_plots()
-        self.analyze_walking()
-        # self.create_tandem_plots()
 
     def load_markerless(self):
         self.markerless_data = {}
@@ -182,6 +186,7 @@ class TrialObject:
         print("Completed walking html export")
 
     def analyze_walking(self):
+        self.calculate_trunk_acceleration()
         self.calculate_step_height()
         self.calculate_step_width()
         # self.calculate_step_width2()
@@ -337,7 +342,30 @@ class TrialObject:
             print("Step height: %.3f +/- (%.3f)"%(np.mean(self.step_height),np.std(self.step_height)))
             plt.show()
 
+    def calculate_trunk_acceleration(self):
+        walking_keys = self.markerless_task_labels[self.markerless_task_labels['Task'] == 'Walking']['Name']
+        accel_vals = []
+        jerk_vals = []
+        for i in range(len(walking_keys)):
+            data = self.markerless_data[walking_keys[i]]['Pelvis_WRT_LabZ'].values
+            velocity = np.gradient(data,1/80)
+            accel = np.gradient(velocity,1/80)
+            jerk = np.gradient(accel,1/80)
+            plt.subplot(4,1,1)
+            plt.plot(data)
+            plt.subplot(4,1,2)
+            plt.plot(velocity)
+            plt.subplot(4,1,3)
+            plt.plot(accel)
+            plt.subplot(4,1,4)
+            plt.plot(jerk)
+            accel_vals.append(np.sqrt(accel.dot(accel)/accel.size))
+            jerk_vals.append(np.sqrt(jerk.dot(jerk)/jerk.size))
+            print("Accel rms: %.3f +/- (%.3f)"%(np.mean(accel_vals),np.std(accel_vals)))
+            print("Jerk rms: %.3f +/- (%.3f)"%(np.mean(jerk_vals),np.std(jerk_vals)))
+            plt.show()
 
+            
     def create_tandem_plots(self):
         self.colors = ['#130AF1','#17ACE8','#1BD9DE']
         plotlist = []
@@ -438,3 +466,7 @@ class TrialObject:
         HTML_FILE.close()
 
         print("Completed tandem html export")
+    
+    def analyze_9_hole(self):
+        
+        

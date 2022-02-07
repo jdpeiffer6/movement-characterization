@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from TrialObject import TrialObject
-path_to_trial = "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\002\\2022-01-28"
+# path_to_trial = "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\002\\2022-01-28"
+path_to_trial = "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\001\\2022-01-26"
 trial_obj = TrialObject(path_to_trial)
 
 # %%
