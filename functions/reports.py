@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import os
 import mpld3
-from SessionDataObject import SessionDataObject
+from functions.SessionDataObject import SessionDataObject
 
 def create_walking_plots(session:SessionDataObject):
     colors = ['#130AF1','#17ACE8','#1BD9DE']
