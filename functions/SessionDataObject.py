@@ -87,7 +87,7 @@ class SessionDataObject:
 
 
     def analyze_walking(self):
-        self.calculate_pelvis_pos(self.plot)
+        self.calculate_pelvis_pos(True)
         self.calculate_joint_angles_walking(self.plot)
         self.calculate_step_height(self.plot)
         self.calculate_step_width(self.plot)
@@ -96,6 +96,10 @@ class SessionDataObject:
 
     def calculate_joint_angles_walking(self,plot: bool):
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
+        lh = np.empty(0)
+        rh = np.empty(0)
+        lk = np.empty(0)
+        rk = np.empty(0)
         for i in range(len(walking_keys)):
             data = self.markerless_data[walking_keys[i]]
             joints = ['Left Hip AnglesX', 'Left Hip AnglesY', 'Left Hip AnglesZ',
@@ -103,29 +107,62 @@ class SessionDataObject:
             'Right Knee AnglesZ', 'Right Hip AnglesX', 'Right Hip AnglesY',
             'Right Hip AnglesZ']
             t=np.linspace(0,data.shape[0]/self.markerless_fs,num=data.shape[0])
+            #right knee
+            r_knee = data['Right Knee AnglesX'].values
+            r_knee_peaks = signal.find_peaks(r_knee,height=35)
+
+            #left knee
+            l_knee = data['Left Knee AnglesX'].values
+            l_knee_peaks = signal.find_peaks(l_knee,height=35)
+
+            hip_height = 10
+            hip_distance = 50
+            #right hip
+            r_hip = data['Right Hip AnglesX'].values
+            r_hip_peaks = signal.find_peaks(r_hip, height=hip_height,distance = hip_distance)
+
+            #left hip
+            l_hip=data['Left Hip AnglesX'].values
+            l_hip_peaks = signal.find_peaks(l_hip,height=hip_height,distance=hip_distance)
+
+            rk=np.append(rk,r_knee[r_knee_peaks[0]])
+            lk=np.append(lk,l_knee[l_knee_peaks[0]])
+            rh=np.append(rh,r_hip[r_hip_peaks[0]])
+            lh=np.append(lh,l_hip[l_hip_peaks[0]])
             if plot:
                 plt.subplot(2,2,1)
-                plt.plot(data[joints[0]])
+                plt.plot(l_hip)
+                plt.scatter(l_hip_peaks[0],l_hip[l_hip_peaks[0]],c='r')
                 plt.title('Left Hip Angle')
                 plt.ylabel('Angle (degrees)')
                 
                 plt.subplot(2,2,2)
-                plt.plot(data[joints[3]])
+                plt.plot(l_knee)
+                plt.scatter(l_knee_peaks[0],l_knee[l_knee_peaks[0]],c='r')
                 plt.title('Left Knee Angle')
 
                 plt.subplot(2,2,3)
-                plt.plot(data[joints[9]])
+                plt.plot(r_hip)
+                plt.scatter(r_hip_peaks[0],r_hip[r_hip_peaks[0]],c='r')
                 plt.title('Right Hip Angle')
                 plt.ylabel('Angle (degrees)')
                 plt.xlabel('Time (samples)')
                 
                 plt.subplot(2,2,4)
-                plt.plot(data[joints[6]])
+                plt.plot(r_knee)
+                plt.scatter(r_knee_peaks[0],r_knee[r_knee_peaks[0]],c='r')
                 plt.title('Right Knee Angle')
                 plt.xlabel('Time (samples)')
 
                 plt.suptitle(walking_keys[i])
+                # manager = plt.get_current_fig_manager()
+                # manager.showMaximized()
                 plt.show()
+        self.r_hip_walking = rh   
+        self.l_hip_walking = lh
+        self.r_knee_walking = rk
+        self.l_knee_walking = lk
+        print("Means:\nRH:\t%.2f\nLH:\t%.2f\nRK:\t%.2f\nLK:\t%.2f\n"%(rh.mean(),lh.mean(),rk.mean(),lk.mean()))
 
 
     def interpolate_walking(self,plot:bool):
