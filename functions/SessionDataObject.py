@@ -9,7 +9,7 @@ import mpld3
 from scipy import signal
 from scipy.interpolate import interp1d
 import numpy as np
-from functions.helper import readTaskCSV,getIndexNames
+from functions.helper import readTaskCSV,getIndexNames,butter_lowpass_filter
 
 class SessionDataObject:
     def __init__(self, path: str,plot: bool,height: float):
@@ -341,34 +341,75 @@ class SessionDataObject:
 
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         for i in range(len(walking_keys)):
-            data = self.markerless_data[walking_keys[i]]['Pelvis_WRT_LabZ'].values
-            t = np.linspace(0,data.shape[0]/self.markerless_fs,data.shape[0])
-            velocity = np.gradient(data,1/self.markerless_fs)
-            accel = np.gradient(velocity,1/self.markerless_fs)
-            jerk = np.gradient(accel,1/self.markerless_fs)
+            #z
+            zdata = self.markerless_data[walking_keys[i]]['Pelvis_WRT_LabZ'].values
+            t = np.linspace(0,zdata.shape[0]/self.markerless_fs,zdata.shape[0])
+            zvelocity = np.gradient(zdata,1/self.markerless_fs)
+            zaccel = np.gradient(zvelocity,1/self.markerless_fs)
+            zjerk = np.gradient(zaccel,1/self.markerless_fs)
+            #y
+            ydata = self.markerless_data[walking_keys[i]]['Pelvis_WRT_LabY'].values
+            yvelocity = np.gradient(ydata,1/self.markerless_fs)
+            yaccel = np.gradient(yvelocity,1/self.markerless_fs)
+            yjerk = np.gradient(yaccel,1/self.markerless_fs)
+            #x
+            xdata = self.markerless_data[walking_keys[i]]['Pelvis_WRT_LabX'].values
+            xvelocity = np.gradient(xdata,1/self.markerless_fs)
+            xaccel = np.gradient(xvelocity,1/self.markerless_fs)
+            xjerk = np.gradient(xaccel,1/self.markerless_fs)
             if plot:
-                plt.subplot(4,1,1)
+                plt.subplot(4,3,1)
+                plt.title('X - Along Lab')
                 plt.ylabel('Position (m)')
-                plt.plot(t,data)
-                plt.subplot(4,1,2)
+                plt.plot(t,xdata)
+
+                plt.subplot(4,3,2)
+                plt.title('Y - Across Lab')
+                plt.plot(t,ydata)
+
+                plt.subplot(4,3,3)
+                plt.title('Z - Vertical Lab')
+                plt.plot(t,zdata)
+
+                plt.subplot(4,3,4)
                 plt.ylabel('Velocity (m/s)')
-                plt.plot(t,velocity)
-                plt.subplot(4,1,3)
+                plt.plot(t,xvelocity)
+
+                plt.subplot(4,3,5)
+                plt.plot(t,yvelocity)
+
+                plt.subplot(4,3,6)
+                plt.plot(t,zvelocity)
+
+                plt.subplot(4,3,7)
                 plt.ylabel('Acceleration (m^2/s)')
-                plt.plot(t,accel)
-                plt.subplot(4,1,4)  
+                plt.plot(t,xaccel)
+
+                plt.subplot(4,3,8)
+                plt.plot(t,yaccel)
+
+                plt.subplot(4,3,9)
+                plt.plot(t,zaccel)
+
+                plt.subplot(4,3,10)  
                 plt.ylabel('Jerk (m^3/s)')
-                plt.plot(t,jerk)
+                plt.plot(t,xjerk)
+
+                plt.subplot(4,3,11)
+                plt.plot(t,yjerk)
                 plt.xlabel('Time (s)')
-                plt.suptitle('Vertical Pelvis Measurements vs Time')
-                plt.show()
-            accel_rms = np.sqrt(accel.dot(accel)/accel.size)
-            jerk_rms = np.sqrt(jerk.dot(jerk)/jerk.size)
+                
+                plt.subplot(4,3,12)
+                plt.plot(t,zjerk)
+
+                plt.suptitle('Pelvis Measurements vs Time')
+            # https://stackoverflow.com/questions/5613244/root-mean-square-in-numpy-and-complications-of-matrix-and-arrays-of-numpy
+            accel_rms = np.sqrt(xaccel.dot(xaccel)/xaccel.size) + np.sqrt(yaccel.dot(yaccel)/yaccel.size) + np.sqrt(zaccel.dot(zaccel)/zaccel.size)
+            jerk_rms = np.sqrt(xjerk.dot(xjerk)/xjerk.size) + np.sqrt(yjerk.dot(yjerk)/yjerk.size) + np.sqrt(zjerk.dot(zjerk)/zjerk.size)
             if plot:
                 print('\n'+walking_keys[i])
                 print("Accel rms: %.3f" % np.mean(accel_rms))
                 print("Jerk rms: %.3f" % np.mean(jerk_rms))
-            #TODO: may want to include x and y jerk in here too
 
             #caculate mean gait speed just using x
             x = self.markerless_data[walking_keys[i]]['Pelvis_WRT_LabX'].values
@@ -377,8 +418,12 @@ class SessionDataObject:
             speed = dist / time
             normalized_accel_rms = accel_rms / speed
             normalized_jerk_rms = jerk_rms / speed
-            print("Speed: %.2f"%speed)
-
+            if plot:
+                print("Speed: %.2f"%speed)
+                print("Norm Accel rms: %.3f" % np.mean(normalized_accel_rms))
+                print("Norm Jerk rms: %.3f" % np.mean(normalized_jerk_rms))
+                plt.show()
             #assign output
+            self.markerless_output_data.loc[walking_keys[i],'Walking Speed'] = speed
             self.markerless_output_data.loc[walking_keys[i],'Pelvis_JerkZ'] = normalized_jerk_rms
             self.markerless_output_data.loc[walking_keys[i],'Pelvis_AccelZ'] = normalized_accel_rms
