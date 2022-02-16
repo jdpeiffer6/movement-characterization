@@ -54,6 +54,27 @@ subject = SessionDataObject(path_to_subject,False,1.7)
 # plt.ylabel("Normalized Step Width")
 # plt.title("Step Width Comparison")
 # plt.show()
+
+# %%
+control_accel=miguel.markerless_output_data['Pelvis_Accel'].values
+control_accel=control_accel[~np.isnan(control_accel)]
+subject_accel=subject.markerless_output_data['Pelvis_Accel'].values
+subject_accel=subject_accel[~np.isnan(subject_accel)]
+data=[control_accel,subject_accel]
+bplot_accel = plt.boxplot(data,labels=["Control RMS","Subject RMS"],patch_artist=True)
+plt.title("Pelvis Acceleration Comparison")
+plt.ylabel("Normalized Acceleration RMS\n($m^3/s$)")
+plt.show()
+# %%
+control_jerk=miguel.markerless_output_data['Pelvis_Jerk'].values
+control_jerk=control_jerk[~np.isnan(control_jerk)]
+subject_jerk=subject.markerless_output_data['Pelvis_Jerk'].values
+subject_jerk=subject_jerk[~np.isnan(subject_jerk)]
+data=[control_jerk,subject_jerk]
+bplot_jerk = plt.boxplot(data,labels=["Control RMS","Subject RMS"],patch_artist=True)
+plt.title("Pelvis Jerk Comparison")
+plt.ylabel("Normalized Jerk RMS\n($m^4/s$)")
+plt.show()
 # %%
 bplot = plt.boxplot([miguel.markerless_step_height,subject.markerless_step_height,miguel.markerless_step_length,subject.markerless_step_length,miguel.markerless_step_width,subject.markerless_step_width],labels=["Control Step Height","Subject Step Height","Control Step Length","Subject Step Length","Control Step Width","Subject Step Width"],patch_artist=True)
 a=ranksums(miguel.markerless_step_height,subject.markerless_step_height)
