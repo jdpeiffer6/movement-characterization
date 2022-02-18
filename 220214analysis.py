@@ -1,5 +1,4 @@
 # %%
-import os
 from functions.SessionDataObject import SessionDataObject
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,54 +7,10 @@ from scipy.stats import ranksums
 from functions.SessionDataObject import SessionDataObject
 path_to_miguel = "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\002\\2022-01-28"
 miguel = SessionDataObject(path_to_miguel,False,1.75)
-# for i in range(miguel.markerless_step_length.size-1,0,-1):
-#     if miguel.markerless_step_length[i] > 1:
-#         miguel.markerless_step_length = np.delete(miguel.markerless_step_length,i)
 path_to_subject =  "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\003\\2022-02-11"
 subject = SessionDataObject(path_to_subject,False,1.7)
 
-# %%
-
-# plt.hist(miguel.markerless_step_height,alpha=0.5)
-# plt.hist(subject.markerless_step_height,alpha=0.5)
-# plt.legend(["Control","Subject"])
-# plt.title("Step Height")
-# plt.show()
-
-# plt.hist(miguel.markerless_step_length,alpha=0.5)
-# plt.hist(subject.markerless_step_length,alpha=0.5)
-# plt.legend(["Control","Subject"])
-# plt.title("Step Length")
-# plt.show()
-
-# plt.hist(miguel.markerless_step_width,alpha=0.5)
-# plt.hist(subject.markerless_step_width,alpha=0.5)
-# plt.legend(["Control","Subject"])
-# plt.title("Step Width")
-# plt.show()
-# %%
-# plt.boxplot([miguel.markerless_step_height,subject.markerless_step_height],labels=["Control","Subject"])
-# a=ranksums(miguel.markerless_step_height,subject.markerless_step_height)
-# print("Step Height: %.6f\n"%a[1])
-# plt.ylabel("Normalized Step Height")
-# plt.title("Step Height Comparison")
-# plt.show()
-
-# plt.boxplot([miguel.markerless_step_length,subject.markerless_step_length],labels=["Control","Subject"])
-# a=ranksums(miguel.markerless_step_length,subject.markerless_step_length)
-# print("Step Length: %.6f\n"%a[1])
-# plt.ylabel("Normalized Step Length")
-# plt.title("Step Length Comparison")
-# plt.show()
-
-# plt.boxplot([miguel.markerless_step_width,subject.markerless_step_width],labels=["Control","Subject"])
-# a=ranksums(miguel.markerless_step_width,subject.markerless_step_width)
-# print("Step Width: %.6f\n"%a[1])
-# plt.ylabel("Normalized Step Width")
-# plt.title("Step Width Comparison")
-# plt.show()
-
-# %%
+# %% pelvis accel
 control_accel=miguel.markerless_output_data['Pelvis_Accel'].values
 control_accel=control_accel[~np.isnan(control_accel)]
 subject_accel=subject.markerless_output_data['Pelvis_Accel'].values
@@ -65,7 +20,7 @@ bplot_accel = plt.boxplot(data,labels=["Control RMS","Subject RMS"],patch_artist
 plt.title("Pelvis Acceleration Comparison")
 plt.ylabel("Normalized Acceleration RMS\n($m^3/s$)")
 plt.show()
-# %%
+# %% pelvis jerk
 control_jerk=miguel.markerless_output_data['Pelvis_Jerk'].values
 control_jerk=control_jerk[~np.isnan(control_jerk)]
 subject_jerk=subject.markerless_output_data['Pelvis_Jerk'].values
@@ -75,6 +30,27 @@ bplot_jerk = plt.boxplot(data,labels=["Control RMS","Subject RMS"],patch_artist=
 plt.title("Pelvis Jerk Comparison")
 plt.ylabel("Normalized Jerk RMS\n($m^4/s$)")
 plt.show()
+# %% pelvis accel
+control_accel=miguel.markerless_output_data['Thorax_Accel'].values
+control_accel=control_accel[~np.isnan(control_accel)]
+subject_accel=subject.markerless_output_data['Thorax_Accel'].values
+subject_accel=subject_accel[~np.isnan(subject_accel)]
+data=[control_accel,subject_accel]
+bplot_accel = plt.boxplot(data,labels=["Control RMS","Subject RMS"],patch_artist=True)
+plt.title("Thorax Acceleration Comparison")
+plt.ylabel("Normalized Acceleration RMS\n($m^3/s$)")
+plt.show()
+# %% pelvis jerk
+control_jerk=miguel.markerless_output_data['Thorax_Jerk'].values
+control_jerk=control_jerk[~np.isnan(control_jerk)]
+subject_jerk=subject.markerless_output_data['Thorax_Jerk'].values
+subject_jerk=subject_jerk[~np.isnan(subject_jerk)]
+data=[control_jerk,subject_jerk]
+bplot_jerk = plt.boxplot(data,labels=["Control RMS","Subject RMS"],patch_artist=True)
+plt.title("Thorax Jerk Comparison")
+plt.ylabel("Normalized Jerk RMS\n($m^4/s$)")
+plt.show()
+
 
 # %% joint angles
 labels=['lightblue','pink','lightblue','pink','lightblue','pink']
@@ -130,6 +106,47 @@ for i in bplot['boxes']:
     j+=1
 plt.show()
 
+
+# %%
+
+# plt.hist(miguel.markerless_step_height,alpha=0.5)
+# plt.hist(subject.markerless_step_height,alpha=0.5)
+# plt.legend(["Control","Subject"])
+# plt.title("Step Height")
+# plt.show()
+
+# plt.hist(miguel.markerless_step_length,alpha=0.5)
+# plt.hist(subject.markerless_step_length,alpha=0.5)
+# plt.legend(["Control","Subject"])
+# plt.title("Step Length")
+# plt.show()
+
+# plt.hist(miguel.markerless_step_width,alpha=0.5)
+# plt.hist(subject.markerless_step_width,alpha=0.5)
+# plt.legend(["Control","Subject"])
+# plt.title("Step Width")
+# plt.show()
+# %%
+# plt.boxplot([miguel.markerless_step_height,subject.markerless_step_height],labels=["Control","Subject"])
+# a=ranksums(miguel.markerless_step_height,subject.markerless_step_height)
+# print("Step Height: %.6f\n"%a[1])
+# plt.ylabel("Normalized Step Height")
+# plt.title("Step Height Comparison")
+# plt.show()
+
+# plt.boxplot([miguel.markerless_step_length,subject.markerless_step_length],labels=["Control","Subject"])
+# a=ranksums(miguel.markerless_step_length,subject.markerless_step_length)
+# print("Step Length: %.6f\n"%a[1])
+# plt.ylabel("Normalized Step Length")
+# plt.title("Step Length Comparison")
+# plt.show()
+
+# plt.boxplot([miguel.markerless_step_width,subject.markerless_step_width],labels=["Control","Subject"])
+# a=ranksums(miguel.markerless_step_width,subject.markerless_step_width)
+# print("Step Width: %.6f\n"%a[1])
+# plt.ylabel("Normalized Step Width")
+# plt.title("Step Width Comparison")
+# plt.show()
 
 
 # %%

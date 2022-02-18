@@ -95,8 +95,9 @@ class SessionDataObject:
         self.calculate_pelvis_pos(self.plot)
         self.calculate_joint_angles_walking(self.plot)
         self.calculate_step_height(self.plot)
-        self.calculate_step_width(True)
-        self.calculate_step_width2(True)
+        self.calculate_step_width(self.plot)
+        self.calculate_thorax_pos(self.plot)
+        # self.calculate_step_width2(True)
         
 
     def calculate_joint_angles_walking(self,plot: bool):
@@ -300,6 +301,7 @@ class SessionDataObject:
         self.markerless_step_length = np.array(step_length)/self.height
 
     def calculate_step_width2(self,plot: bool):
+        """Uses the RTO,LTO,etc from V3D...doesnt really work rn"""
         # trial_names = list(self.markerless_events.keys())
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         for trial in walking_keys:
@@ -504,3 +506,86 @@ class SessionDataObject:
             self.markerless_output_data.loc[walking_keys[i],'Walking Speed'] = speed
             self.markerless_output_data.loc[walking_keys[i],'Pelvis_Jerk'] = normalized_jerk_rms
             self.markerless_output_data.loc[walking_keys[i],'Pelvis_Accel'] = normalized_accel_rms
+
+    def calculate_thorax_pos(self, plot:bool):
+        self.markerless_output_data['Thorax_Jerk'] = np.nan
+        self.markerless_output_data['Thorax_Accel'] = np.nan
+        walking_keys = getIndexNames('Walking',self.markerless_task_labels)
+        for i in range(len(walking_keys)):
+            names = ['Distal ThoraxX','Distal ThoraxY','Distal ThoraxZ']   #there are also thorax angles too...but they dont look super cool
+            data = getMarkerlessData(self.markerless_data,walking_keys[i],names)
+            # x
+            xdata = data['Distal ThoraxX']
+            xvelocity = np.gradient(xdata,1/self.markerless_fs)
+            xaccel = np.gradient(xvelocity,1/self.markerless_fs)
+            xjerk = np.gradient(xaccel,1/self.markerless_fs)
+            # y
+            ydata = data['Distal ThoraxY']
+            yvelocity = np.gradient(ydata,1/self.markerless_fs)
+            yaccel = np.gradient(yvelocity,1/self.markerless_fs)
+            yjerk = np.gradient(yaccel,1/self.markerless_fs)
+            # z
+            zdata = data['Distal ThoraxZ']
+            zvelocity = np.gradient(zdata,1/self.markerless_fs)
+            zaccel = np.gradient(zvelocity,1/self.markerless_fs)
+            zjerk = np.gradient(zaccel,1/self.markerless_fs)
+            if plot:
+                plt.subplot(4,3,1)
+                plt.plot(data['Distal ThoraxX'])
+                plt.title("X\n(Along)")
+                plt.ylabel('Position\n$m$')
+                plt.subplot(4,3,2)
+                plt.plot(data['Distal ThoraxY'])
+                plt.title("Y\n(Across)")
+                plt.subplot(4,3,3)
+                plt.plot(data['Distal ThoraxZ'])
+                plt.title("Z\n(Vertical)")
+                plt.subplot(4,3,4)
+                plt.plot(xvelocity)
+                plt.ylabel('Velocity\n$m/s$')
+                plt.subplot(4,3,5)
+                plt.plot(yvelocity)
+                plt.subplot(4,3,6)
+                plt.plot(zvelocity)
+                plt.subplot(4,3,7)
+                plt.plot(xaccel)
+                plt.ylabel('Acceleration\n$m^2/s$')
+                plt.subplot(4,3,8)
+                plt.plot(yaccel)
+                plt.subplot(4,3,9)
+                plt.plot(zaccel)
+                plt.subplot(4,3,10)
+                plt.plot(xjerk)
+                plt.ylabel('Jerk\n$m^3/s$')
+                plt.subplot(4,3,11)
+                plt.xlabel('Time\n$Samples$')
+                plt.plot(yjerk)
+                plt.subplot(4,3,12)
+                plt.plot(zjerk)
+                plt.suptitle(self.id+'\n'+walking_keys[i])
+            
+            # https://stackoverflow.com/questions/5613244/root-mean-square-in-numpy-and-complications-of-matrix-and-arrays-of-numpy
+            accel_rms = np.sqrt(xaccel.dot(xaccel)/xaccel.size) + np.sqrt(yaccel.dot(yaccel)/yaccel.size) + np.sqrt(zaccel.dot(zaccel)/zaccel.size)
+            jerk_rms = np.sqrt(xjerk.dot(xjerk)/xjerk.size) + np.sqrt(yjerk.dot(yjerk)/yjerk.size) + np.sqrt(zjerk.dot(zjerk)/zjerk.size)
+            if plot:
+                print('\n'+walking_keys[i])
+                print("Accel rms: %.3f" % np.mean(accel_rms))
+                print("Jerk rms: %.3f" % np.mean(jerk_rms))
+
+            #caculate mean gait speed just using x
+            x = data['Distal ThoraxX'].values
+            dist = np.abs(np.min(x))+np.abs(np.max(x))
+            time = x.shape[0] / self.markerless_fs
+            speed = dist / time
+            normalized_accel_rms = accel_rms / speed
+            normalized_jerk_rms = jerk_rms / speed
+            if plot:
+                print("Speed: %.2f"%speed)
+                print("Norm Accel rms: %.3f" % np.mean(normalized_accel_rms))
+                print("Norm Jerk rms: %.3f" % np.mean(normalized_jerk_rms))
+                plt.show()
+            #assign output
+            self.markerless_output_data.loc[walking_keys[i],'Walking Speed'] = speed
+            self.markerless_output_data.loc[walking_keys[i],'Thorax_Jerk'] = normalized_jerk_rms
+            self.markerless_output_data.loc[walking_keys[i],'Thorax_Accel'] = normalized_accel_rms
+
