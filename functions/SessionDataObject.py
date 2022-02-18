@@ -9,7 +9,7 @@ import mpld3
 from scipy import signal
 from scipy.interpolate import interp1d
 import numpy as np
-from functions.helper import readTaskCSV,getIndexNames
+from functions.helper import readTaskCSV,getIndexNames,getMarkerlessData,mapPeaks
 
 class SessionDataObject:
     def __init__(self, path: str,plot: bool,height: float):
@@ -94,7 +94,7 @@ class SessionDataObject:
     def analyze_walking(self):
         self.calculate_pelvis_pos(self.plot)
         self.calculate_joint_angles_walking(self.plot)
-        self.calculate_step_height(True)
+        self.calculate_step_height(self.plot)
         self.calculate_step_width(True)
         # self.calculate_step_width2(True)
         
@@ -106,7 +106,7 @@ class SessionDataObject:
         lk = np.empty(0)
         rk = np.empty(0)
         for i in range(len(walking_keys)):
-            data = self.markerless_data[walking_keys[i]]
+            data = getMarkerlessData(self.markerless_data,walking_keys[i],['Right Knee AnglesX','Left Knee AnglesX','Right Hip AnglesX','Left Hip AnglesX'])
             t=np.linspace(0,data.shape[0]/self.markerless_fs,num=data.shape[0])
             #right knee
             r_knee = data['Right Knee AnglesX'].values
@@ -178,18 +178,20 @@ class SessionDataObject:
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         peakdict = {}
         for i in range(len(walking_keys)):
-            data = self.markerless_data[walking_keys[i]]
+            data = getMarkerlessData(self.markerless_data,walking_keys[i],['R_HEELX','R_HEELZ','L_HEELX','L_HEELZ'])
             #interpolate that sh(t)
             # right leg
             xmin = min(data['R_HEELX'])
             xmax = max(data['R_HEELX'])
             r_xnew = np.linspace(xmin,xmax,num = data['R_HEELX'].shape[0],endpoint=True)
-            x = data['R_HEELX']
-            z = data['R_HEELZ']
+            x = data['R_HEELX'].values
+            z = data['R_HEELZ'].values
             f_interp = interp1d(x,z)
             r_znew = f_interp(r_xnew)
-            self.markerless_data[walking_keys[i]]['R_HEELZ_WRT_X'] = r_znew
-            r_peaks = signal.find_peaks(-1*r_znew,threshold = -0.05,distance=50)
+            self.markerless_data[walking_keys[i]]['R_HEELZ_WRT_X'] = np.nan
+            self.markerless_data[walking_keys[i]]['R_HEELZ_WRT_X'][data.index] = r_znew
+            r_peaks_interp = signal.find_peaks(-1*r_znew,threshold = -0.05,distance=50)
+            r_peaks_real = mapPeaks(r_peaks_interp,r_xnew,data['R_HEELX'])
 
             # left leg
             xmin = min(data['L_HEELX'])
@@ -199,38 +201,52 @@ class SessionDataObject:
             z = data['L_HEELZ']
             f_interp = interp1d(x,z)    #TODO: may want to add cubic interpolation but kinda too lazy rn
             l_znew = f_interp(l_xnew)
-            self.markerless_data[walking_keys[i]]['L_HEELZ_WRT_X'] = l_znew
-            l_peaks = signal.find_peaks(-1*l_znew,threshold = -0.05,distance=50)
+            self.markerless_data[walking_keys[i]]['L_HEELZ_WRT_X'] = np.nan
+            self.markerless_data[walking_keys[i]]['L_HEELZ_WRT_X'][data.index] = l_znew
+            # l_peaks = signal.find_peaks(-1*l_znew,threshold = -0.05,distance=50)
+            l_peaks_interp = signal.find_peaks(-1*l_znew,threshold = -0.05,distance=50)
+            l_peaks_real = mapPeaks(l_peaks_interp,l_xnew,data['L_HEELX'])
 
             if plot:
                 t = np.linspace(0,x.shape[0]/100,num=x.shape[0])
                 plt.subplot(2,2,1)
                 plt.plot(t,data['L_HEELZ'],'b')
+                plt.xlabel("Time (s)")
+                plt.ylabel('Heel Height (m)')
                 plt.subplot(2,2,3)
-                plt.plot(l_xnew,self.markerless_data[walking_keys[i]]['L_HEELZ_WRT_X'].values,'g')
-                plt.plot(self.markerless_data[walking_keys[i]]['L_HEELX'].values,self.markerless_data[walking_keys[i]]['L_HEELZ'].values,'y--',alpha=0.8)
-                plt.scatter(self.markerless_data[walking_keys[i]]['L_HEELX'].values[l_peaks[0]],self.markerless_data[walking_keys[i]]['L_HEELZ_WRT_X'].values[l_peaks[0]],c='r')
+                plt.plot(l_xnew,l_znew,'y--')
+                plt.plot(data['L_HEELX'].values,data['L_HEELZ'].values,'g',alpha=0.5)
+                plt.scatter(l_xnew[l_peaks_interp[0]],l_znew[l_peaks_interp[0]],c='y')
+                plt.scatter(data['L_HEELX'].values[l_peaks_real],data['L_HEELZ'].values[l_peaks_real],c='g')
+                plt.xlabel('Distance (m)')
+                plt.ylabel('Heel Height (m)')
                 plt.subplot(2,2,2)
                 plt.plot(t,data['R_HEELZ'],'b')
+                plt.xlabel("Time (s)")
                 plt.subplot(2,2,4)
-                plt.plot(r_xnew,self.markerless_data[walking_keys[i]]['R_HEELZ_WRT_X'].values,'g')
-                plt.plot(self.markerless_data[walking_keys[i]]['R_HEELX'].values,self.markerless_data[walking_keys[i]]['R_HEELZ'].values,'y--')
-                plt.scatter(self.markerless_data[walking_keys[i]]['R_HEELX'].values[r_peaks[0]],self.markerless_data[walking_keys[i]]['R_HEELZ_WRT_X'].values[r_peaks[0]],c='r')
+                plt.plot(r_xnew,r_znew,'y--')
+                plt.plot(data['R_HEELX'].values,data['R_HEELZ'].values,'g',alpha=0.5)
+                plt.scatter(r_xnew[r_peaks_interp[0]],r_znew[r_peaks_interp[0]],c='y')
+                plt.scatter(data['R_HEELX'].values[r_peaks_real],data['R_HEELZ'].values[r_peaks_real],c='g')
+                plt.legend(['Interp','Real','Interp Strike','Real Strike'])
+                plt.xlabel('Distance (m)')
                 
                 plt.suptitle("Interpolated")
                 plt.show()
-            peakdict.update({walking_keys[i]:[r_peaks[0],l_peaks[0]]})
+            # peakdict.update({walking_keys[i]:[r_peaks[0],l_peaks[0]]})
+            peakdict.update({walking_keys[i]:[r_peaks_real,l_peaks_real]})
         return peakdict
             
 
     def calculate_step_width(self,plot : bool):
-        peakdict = self.interpolate_walking(True) # returns {key:[right,left]}
+        peakdict = self.interpolate_walking(False) # returns {key:[right,left]}
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         step_width = []
         step_length = []
         for i in range(len(walking_keys)):
-            data = self.markerless_data[walking_keys[i]]
-            heel = data[['R_HEELX','R_HEELY','R_HEELZ','L_HEELX','L_HEELY','L_HEELZ','L_HEELZ_WRT_X','R_HEELZ_WRT_X']]
+            # data = self.markerless_data[walking_keys[i]]
+            data = getMarkerlessData(self.markerless_data,walking_keys[i],['R_HEELX','R_HEELY','R_HEELZ','L_HEELX','L_HEELY','L_HEELZ'])
+            heel = data[['R_HEELX','R_HEELY','R_HEELZ','L_HEELX','L_HEELY','L_HEELZ']]
             r_peaks = peakdict[walking_keys[i]][0]
             l_peaks = peakdict[walking_keys[i]][1]
             if plot:
@@ -240,44 +256,23 @@ class SessionDataObject:
                 plt.scatter(data['L_HEELX'].values[l_peaks],data['L_HEELY'].values[l_peaks],c='y')
                 plt.legend(['Right Heel','Left Heel','RHS','LHS'])
                 plt.ylabel('Lab Y\n(Across)')
-                plt.plot([heel['R_HEELX'].values[r_peaks[0]],heel['L_HEELX'].values[l_peaks[0]]], [heel['R_HEELY'].values[r_peaks[0]],heel['L_HEELY'].values[l_peaks[0]]], 'y', linestyle="--")
+                # plt.plot([heel['R_HEELX'].values[r_peaks[0]],heel['L_HEELX'].values[l_peaks[0]]], [heel['R_HEELY'].values[r_peaks[0]],heel['L_HEELY'].values[l_peaks[0]]], 'y', linestyle="--")
                 xlimmin,xlimmax = plt.xlim()
 
                 plt.subplot(3,1,1)
                 plt.plot(data['L_HEELX'],data['L_HEELZ'],'g')
                 plt.scatter(data['L_HEELX'].values[l_peaks],data['L_HEELZ'].values[l_peaks],c='y')
                 plt.xlim(xlimmin,xlimmax)
+                plt.ylabel('Lab Z\n(Vertical)')
 
 
                 plt.subplot(3,1,3)
                 plt.plot(data['R_HEELX'],data['R_HEELZ'],'b')
-                plt.scatter(data['R_HEELX'].values[l_peaks],data['R_HEELZ'].values[l_peaks],c='r')
+                plt.scatter(data['R_HEELX'].values[r_peaks],data['R_HEELZ'].values[r_peaks],c='r')
                 plt.xlim(xlimmin,xlimmax)
-                # f = plt.figure()
-                # gs= GridSpec(2,2,figure=f)
-                # ax1 = f.add_subplot(gs[0,0])
-                # ax2 = f.add_subplot(gs[0,1])
-                # ax3 = f.add_subplot(gs[1,:])
-                
-                # ax1.plot(heel['L_HEELZ_WRT_X'].values)
-                # ax1.scatter(l_peaks,heel['L_HEELZ_WRT_X'].values[l_peaks],c='r')
-                # ax1.set_ylabel('Lab Z (m)')
-                # ax1.set_xlabel('Lab X (cm)')
+                plt.xlabel('Lab X (m)\n(Along)')
+                plt.ylabel('Lab Z\n(Vertical)')
 
-                # ax2.plot(heel['R_HEELZ_WRT_X'].values,'g')
-                # ax2.scatter(r_peaks,heel['R_HEELZ_WRT_X'].values[r_peaks],c='r')
-                # ax2.set_ylabel('Lab Z (m)')
-                # ax2.set_xlabel('Lab X (m)')
-                # ax3.plot(heel['L_HEELX'].values,heel['L_HEELY'].values)
-                # ax3.scatter(heel['L_HEELX'].values[l_peaks],heel['L_HEELY'].values[l_peaks],c='r')
-
-                # ax3.plot(heel['R_HEELX'].values,heel['R_HEELY'].values,'g')
-                # ax3.scatter(heel['R_HEELX'].values[r_peaks],heel['R_HEELY'].values[r_peaks],c='r')
-                # ax3.set_xlabel('Lab X (m)')
-                # ax3.set_ylabel('Lab Y (m)')
-                # ax3.legend(['Left','Heel Down','Right'])
-
-            #TODO: scaling peaks by x has an issue it seems...maybe use cubic interpolation?
             for _ in range(r_peaks.size+l_peaks.size):
                 if r_peaks.size ==0 or l_peaks.size ==0:
                     break
@@ -295,7 +290,6 @@ class SessionDataObject:
             if plot:
                 print("\nStep Width: %.3f +/- (%.3f)"%(np.mean(step_width),np.std(step_width)))
                 print("Step length: %.3f +/- (%.3f)"%(np.mean(step_length),np.std(step_length)))
-            if plot:
                 plt.suptitle(walking_keys[i]+'\n'+self.id)
                 plt.show()
         for j in range(len(step_length)-1,0,-1):
@@ -356,7 +350,7 @@ class SessionDataObject:
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         step_height = []
         for i in range(len(walking_keys)):
-            data = self.markerless_data[walking_keys[i]]
+            data = getMarkerlessData(self.markerless_data,walking_keys[i],['L_HEELZ','R_HEELZ'])
             # L Heel
             l_peaks = signal.find_peaks(data['L_HEELZ'].values,height=0.1)[0]
             if plot:
@@ -389,11 +383,7 @@ class SessionDataObject:
 
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         for i in range(len(walking_keys)):
-            # the three lines below were added because the different segments get recognized at different points
-            data = self.markerless_data[walking_keys[i]]
-            data = data.loc[:,['PelvisPosX','PelvisPosY','PelvisPosZ']]
-            data = data.dropna(how='all')
-            #TODO: may want to add something that cuts out snippets that are recognized for like a second then dissappear
+            data = getMarkerlessData(self.markerless_data,walking_keys[i],['PelvisPosX','PelvisPosY','PelvisPosZ'])
             #z
             # zdata = self.markerless_data[walking_keys[i]]['PelvisPosZ'].values
             zdata = data['PelvisPosZ']
