@@ -96,7 +96,7 @@ class SessionDataObject:
         self.calculate_joint_angles_walking(self.plot)
         self.calculate_step_height(self.plot)
         self.calculate_step_width(True)
-        # self.calculate_step_width2(True)
+        self.calculate_step_width2(True)
         
 
     def calculate_joint_angles_walking(self,plot: bool):
