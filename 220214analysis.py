@@ -8,9 +8,9 @@ from scipy.stats import ranksums
 from functions.SessionDataObject import SessionDataObject
 path_to_miguel = "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\002\\2022-01-28"
 miguel = SessionDataObject(path_to_miguel,False,1.75)
-for i in range(miguel.markerless_step_length.size-1,0,-1):
-    if miguel.markerless_step_length[i] > 1:
-        miguel.markerless_step_length = np.delete(miguel.markerless_step_length,i)
+# for i in range(miguel.markerless_step_length.size-1,0,-1):
+#     if miguel.markerless_step_length[i] > 1:
+#         miguel.markerless_step_length = np.delete(miguel.markerless_step_length,i)
 path_to_subject =  "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\003\\2022-02-11"
 subject = SessionDataObject(path_to_subject,False,1.7)
 
@@ -75,23 +75,9 @@ bplot_jerk = plt.boxplot(data,labels=["Control RMS","Subject RMS"],patch_artist=
 plt.title("Pelvis Jerk Comparison")
 plt.ylabel("Normalized Jerk RMS\n($m^4/s$)")
 plt.show()
-# %%
-bplot = plt.boxplot([miguel.markerless_step_height,subject.markerless_step_height,miguel.markerless_step_length,subject.markerless_step_length,miguel.markerless_step_width,subject.markerless_step_width],labels=["Control Step Height","Subject Step Height","Control Step Length","Subject Step Length","Control Step Width","Subject Step Width"],patch_artist=True)
-a=ranksums(miguel.markerless_step_height,subject.markerless_step_height)
-print("Step Height: %.6f\n"%a[1])
-a=ranksums(miguel.markerless_step_length,subject.markerless_step_length)
-print("Step Length: %.6f\n"%a[1])
-a=ranksums(miguel.markerless_step_width,subject.markerless_step_width)
-print("Step Width: %.6f\n"%a[1])
-plt.ylabel("Normalized Distance (m/m)")
-labels=['lightblue','pink','lightblue','pink','lightblue','pink']
-j=0
-for i in bplot['boxes']:
-    i.set_facecolor(labels[j])
-    j+=1
-plt.show()
 
 # %% joint angles
+labels=['lightblue','pink','lightblue','pink','lightblue','pink']
 miguel_angles = []
 miguel_angles.append(miguel.r_hip_walking)
 miguel_angles.append(miguel.l_hip_walking)
@@ -129,5 +115,21 @@ print("Control/Subject R Hip: %.6f\nControl/Subject L Hip: %.6f\n"%(ranksums(mig
 print("Control/Subject R Knee: %.6f\nControl/Subject L Knee: %.6f\n"%(ranksums(miguel_angles[2],subject_angles[2])[1],ranksums(miguel_angles[3],subject_angles[3])[1]))
 
 plt.show()
+# %%
+bplot = plt.boxplot([miguel.markerless_step_height,subject.markerless_step_height,miguel.markerless_step_length,subject.markerless_step_length,miguel.markerless_step_width,subject.markerless_step_width],labels=["Control Step Height","Subject Step Height","Control Step Length","Subject Step Length","Control Step Width","Subject Step Width"],patch_artist=True)
+a=ranksums(miguel.markerless_step_height,subject.markerless_step_height)
+print("Step Height: %.6f\n"%a[1])
+a=ranksums(miguel.markerless_step_length,subject.markerless_step_length)
+print("Step Length: %.6f\n"%a[1])
+a=ranksums(miguel.markerless_step_width,subject.markerless_step_width)
+print("Step Width: %.6f\n"%a[1])
+plt.ylabel("Normalized Distance (m/m)")
+j=0
+for i in bplot['boxes']:
+    i.set_facecolor(labels[j])
+    j+=1
+plt.show()
+
+
 
 # %%

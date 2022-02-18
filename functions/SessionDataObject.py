@@ -49,9 +49,11 @@ class SessionDataObject:
     def load_markerless(self):
         self.markerless_data = {}
         self.markerless_events = {}
-        #TODO: error check for column names
+        self.markerless_data_unused = {}       
         with open(glob.glob(self.path+'_001'+'/*.json')[0]) as f:
             markerless_data_json = json.load(f)
+        
+        names_to_exclude = ['Head_wrt_Lab'] #TODO: this is a bit of a coarse workaround...but alot of numpy stuff doesnt work if there are things with na values floating around....
 
         for i in range(len(markerless_data_json['Visual3D'])):
             data = markerless_data_json['Visual3D'][i]
@@ -60,10 +62,13 @@ class SessionDataObject:
             if trial_name not in self.markerless_data.keys():
                 self.markerless_data[trial_name] = pd.DataFrame()
                 self.markerless_events[trial_name] = {}
+                self.markerless_data_unused[trial_name] = pd.DataFrame()
                 print(trial_name)
             for j in range(len(data['signal'])):
                 if data['name'] in ['LHS','LTO','RHS','RTO']:
                     self.markerless_events[trial_name].update({data['name']:data['signal'][j]['data']})
+                elif data['name'] in names_to_exclude:
+                    self.markerless_data_unused[trial_name].update({data['name']:data['signal'][j]['data']})
                 else:
                     self.markerless_data[trial_name][data['name']+data['signal'][j]['component']] = data['signal'][j]['data']
         
@@ -89,9 +94,9 @@ class SessionDataObject:
     def analyze_walking(self):
         self.calculate_pelvis_pos(self.plot)
         self.calculate_joint_angles_walking(self.plot)
-        self.calculate_step_height(self.plot)
+        self.calculate_step_height(True)
         self.calculate_step_width(True)
-        self.calculate_step_width2(True)
+        # self.calculate_step_width2(True)
         
 
     def calculate_joint_angles_walking(self,plot: bool):
@@ -170,7 +175,6 @@ class SessionDataObject:
 
 
     def interpolate_walking(self,plot:bool):
-        # walking_keys = self.markerless_task_labels[self.markerless_task_labels['Task'] == 'Walking']['Name']
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         peakdict = {}
         for i in range(len(walking_keys)):
@@ -220,7 +224,7 @@ class SessionDataObject:
             
 
     def calculate_step_width(self,plot : bool):
-        peakdict = self.interpolate_walking(False) # returns {key:[right,left]}
+        peakdict = self.interpolate_walking(True) # returns {key:[right,left]}
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         step_width = []
         step_length = []
@@ -385,19 +389,27 @@ class SessionDataObject:
 
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         for i in range(len(walking_keys)):
+            # the three lines below were added because the different segments get recognized at different points
+            data = self.markerless_data[walking_keys[i]]
+            data = data.loc[:,['PelvisPosX','PelvisPosY','PelvisPosZ']]
+            data = data.dropna(how='all')
+            #TODO: may want to add something that cuts out snippets that are recognized for like a second then dissappear
             #z
-            zdata = self.markerless_data[walking_keys[i]]['Pelvis_WRT_LabZ'].values
+            # zdata = self.markerless_data[walking_keys[i]]['PelvisPosZ'].values
+            zdata = data['PelvisPosZ']
             t = np.linspace(0,zdata.shape[0]/self.markerless_fs,zdata.shape[0])
             zvelocity = np.gradient(zdata,1/self.markerless_fs)
             zaccel = np.gradient(zvelocity,1/self.markerless_fs)
             zjerk = np.gradient(zaccel,1/self.markerless_fs)
             #y
-            ydata = self.markerless_data[walking_keys[i]]['Pelvis_WRT_LabY'].values
+            # ydata = self.markerless_data[walking_keys[i]]['PelvisPosY'].values
+            ydata = data['PelvisPosY']
             yvelocity = np.gradient(ydata,1/self.markerless_fs)
             yaccel = np.gradient(yvelocity,1/self.markerless_fs)
             yjerk = np.gradient(yaccel,1/self.markerless_fs)
             #x
-            xdata = self.markerless_data[walking_keys[i]]['Pelvis_WRT_LabX'].values
+            # xdata = self.markerless_data[walking_keys[i]]['PelvisPosX'].values
+            xdata = data['PelvisPosX']
             xvelocity = np.gradient(xdata,1/self.markerless_fs)
             xaccel = np.gradient(xvelocity,1/self.markerless_fs)
             xjerk = np.gradient(xaccel,1/self.markerless_fs)
@@ -453,6 +465,8 @@ class SessionDataObject:
             # threshold = np.mean(xvelocity) + 3 * np.std(xvelocity)
             threshold = 5
             while np.any(np.abs(xvelocity)>threshold):
+                #this is sometimes due to the disappearing and reappearing of the reconstruction in theia...so could look at how
+                # the nan data is removed...but this works
                 print("\nTruncating due to artifact")
                 locs = np.where(np.abs(xvelocity)>threshold)[-1]
                 dist = 30
@@ -485,7 +499,7 @@ class SessionDataObject:
                 print("Jerk rms: %.3f" % np.mean(jerk_rms))
 
             #caculate mean gait speed just using x
-            x = self.markerless_data[walking_keys[i]]['Pelvis_WRT_LabX'].values
+            x = data['PelvisPosX'].values
             dist = np.abs(np.min(x))+np.abs(np.max(x))
             time = x.shape[0] / self.markerless_fs
             speed = dist / time
