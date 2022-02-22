@@ -1,6 +1,7 @@
 import os
 import json
 from re import L
+from turtle import distance
 import pandas as pd
 import glob
 import matplotlib.pyplot as plt
@@ -9,7 +10,7 @@ import mpld3
 from scipy import signal
 from scipy.interpolate import interp1d
 import numpy as np
-from functions.helper import readTaskCSV,getIndexNames,getMarkerlessData,mapPeaks
+from functions.helper import readTaskCSV,getIndexNames,getMarkerlessData,mapPeaks,distance3D,pathAccelJerk
 
 class SessionDataObject:
     def __init__(self, path: str,plot: bool,height: float):
@@ -44,7 +45,8 @@ class SessionDataObject:
             self.load_markers()
         else:
             print("Could not find marker session for %s"% self.id)
-        self.analyze_walking()
+        # self.analyze_walking()
+        self.analyze_NG(self.plot)
 
     def load_markerless(self):
         self.markerless_data = {}
@@ -99,6 +101,142 @@ class SessionDataObject:
         self.calculate_thorax_pos(self.plot)
         # self.calculate_step_width2(True)
         
+    def analyze_NG(self,plot):
+        ng_layout_keys = getIndexNames('NGLayout',self.marker_task_labels)
+        ng_keys = getIndexNames('NG',self.marker_task_labels)
+
+        # establish baseline position
+        static_data = self.marker_data[ng_layout_keys[0]]
+        static_data = static_data[['BR X', 'BR Y', 'BR Z', 'BL X', 'BL Y', 'BL Z', 'BT X','BT Y', 'BT Z']]  #TODO: establish only one layout in protocol
+        block_x = np.mean((np.mean(static_data['BR X']),np.mean(static_data['BL X']),np.mean(static_data['BT X'])))
+        block_y = np.mean(static_data['BT Y'])
+        block_z = np.mean((np.mean(static_data['BR Z']),np.mean(static_data['BL Z'])))
+        block_coords = (block_x,block_y,block_z)
+        
+        list_of_ends = []
+        for i in range(len(ng_keys)):
+            data = self.marker_data[ng_keys[i]]
+            if self.marker_task_labels['Side'][ng_keys[i]] == 'R':
+                if self.id == '003':
+                    list_of_ends = [228,204,194,180,197,170,189,205,179,164]
+                    end = list_of_ends[i]
+                elif self.id == '001':
+                    list_of_ends = [155,141,122,138,135,137,118,138,132,137]
+                    end = list_of_ends[i]
+                else:
+                    plt.plot(data['RPOI Z'])
+                    plt.show()
+                    end = int(input("where to truncate: "))
+                    list_of_ends.append(end)
+                pstart = ( data['RPOI X'][0],data['RPOI Y'][0],data['RPOI Z'][0])
+                tstart = ( data['RTHU X'][0],data['RTHU Y'][0],data['RTHU Z'][0])
+
+                p_old = pstart
+                t_old = tstart
+                p_dist = 0
+                t_dist = 0
+                mga = 0
+                mga_i = 0
+                for j in range(end):
+                    pxyz = ( data['RPOI X'][j], data['RPOI Y'][j], data['RPOI Z'][j])
+                    txyz = ( data['RTHU X'][j], data['RTHU Y'][j], data['RTHU Z'][j])
+                    
+                    p_dist += distance3D(p_old,pxyz)    
+                    t_dist += distance3D(t_old,txyz)    
+                    p_old = pxyz
+                    t_old = txyz
+                    #mga
+                    ga = distance3D(pxyz,txyz)
+                    if ga > mga:
+                        mga = ga
+                        mga_i = j
+                #calculate accel/jerk
+                p_accel,p_jerk = pathAccelJerk(data['RPOI X'][:end],data['RPOI Y'][:end],data['RPOI Z'][:end],self.marker_fs)
+                t_accel,t_jerk = pathAccelJerk(data['RTHU X'][:end],data['RTHU Y'][:end],data['RTHU Z'][:end],self.marker_fs)                      
+            else:
+                if self.id == '003':
+                    list_of_ends = [228,204,194,180,197,170,189,205,179,164]
+                    end = list_of_ends[i]
+                elif self.id == '001':
+                    list_of_ends = [155,141,122,138,135,137,118,138,132,137]
+                    end = list_of_ends[i]
+                else:
+                    plt.plot(data['LPOI Z'])
+                    plt.show()
+                    end = int(input("where to truncate: "))
+                    list_of_ends.append(end)
+                pstart = ( data['LPOI X'][0],data['LPOI Y'][0],data['LPOI Z'][0])
+                tstart = ( data['LTHU X'][0],data['LTHU Y'][0],data['LTHU Z'][0])
+
+                p_old = pstart
+                t_old = tstart
+                p_dist = 0
+                t_dist = 0
+                mga = 0
+                mga_i = 0
+                for j in range(end):
+                    pxyz = ( data['LPOI X'][j], data['LPOI Y'][j], data['LPOI Z'][j])
+                    txyz = ( data['LTHU X'][j], data['LTHU Y'][j], data['LTHU Z'][j])
+                    
+                    p_dist += distance3D(p_old,pxyz)    
+                    t_dist += distance3D(t_old,txyz)    
+                    p_old = pxyz
+                    t_old = txyz
+                    #mga
+                    ga = distance3D(pxyz,txyz)
+                    if ga > mga:
+                        mga = ga
+                        mga_i = j
+                #calculate accel/jerk
+                p_accel,p_jerk = pathAccelJerk(data['LPOI X'][:end],data['LPOI Y'][:end],data['LPOI Z'][:end],self.marker_fs)
+                t_accel,t_jerk = pathAccelJerk(data['LTHU X'][:end],data['LTHU Y'][:end],data['LTHU Z'][:end],self.marker_fs)
+
+            #calculate path length
+            p_ideal_distance = distance3D(pstart,pxyz)
+            t_ideal_distance = distance3D(tstart,txyz)
+            self.marker_output_data.loc[ng_keys[i],'Pointer Dist'] = p_dist / p_ideal_distance
+            self.marker_output_data.loc[ng_keys[i],'Thumb Dist'] = t_dist / t_ideal_distance
+
+            # save accel, jerk
+            self.marker_output_data.loc[ng_keys[i],'Pointer Accel'] = p_accel
+            self.marker_output_data.loc[ng_keys[i],'Thumb Accel'] = t_accel
+            self.marker_output_data.loc[ng_keys[i],'Pointer Jerk'] = p_jerk
+            self.marker_output_data.loc[ng_keys[i],'Thumb Jerk'] = t_jerk
+
+            # save MGA
+            self.marker_output_data.loc[ng_keys[i],'MGA'] = mga
+            self.marker_output_data.loc[ng_keys[i],'MGA_t'] = mga_i/end
+
+        if(plot):
+            ax = plt.axes(projection ='3d')
+            ax.scatter(block_x,block_y,block_z)
+
+        for i in range(len(ng_keys)):
+            data = self.marker_data[ng_keys[i]]
+            end = list_of_ends[i]
+            if plot:
+                if self.marker_task_labels['Side'][ng_keys[i]] == 'R':
+                    ax.plot3D(data['RPOI X'][:end],data['RPOI Y'][:end],data['RPOI Z'][:end],c='purple',alpha=0.7)
+                    ax.plot3D(data['RTHU X'][:end],data['RTHU Y'][:end],data['RTHU Z'][:end],c='g',alpha=0.7)
+                else:
+                    ax.plot3D(data['LPOI X'][:end],data['LPOI Y'][:end],data['LPOI Z'][:end],c='b',alpha=0.7)
+                    ax.plot3D(data['LTHU X'][:end],data['LTHU Y'][:end],data['LTHU Z'][:end],c='r',alpha=0.7)
+        if plot:
+            plt.show()
+
+        for i in range(len(ng_keys)):
+                    data = self.marker_data[ng_keys[i]]
+                    end = list_of_ends[i]
+                    if plot:
+                        if self.marker_task_labels['Side'][ng_keys[i]] == 'R':
+                            plt.plot(data['RPOI X'][:end],data['RPOI Y'][:end],c='purple',alpha=0.7)
+                            plt.plot(data['RTHU X'][:end],data['RTHU Y'][:end],c='g',alpha=0.7)
+                        else:
+                            plt.plot(data['LPOI X'][:end],data['LPOI Y'][:end],c='b',alpha=0.7)
+                            plt.plot(data['LTHU X'][:end],data['LTHU Y'][:end],c='r',alpha=0.7)
+        if plot:
+            plt.show()
+         
 
     def calculate_joint_angles_walking(self,plot: bool):
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)

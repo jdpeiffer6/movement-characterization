@@ -1,3 +1,4 @@
+from turtle import speed
 import pandas as pd
 import os
 from scipy import signal
@@ -43,3 +44,43 @@ def mapPeaks(peaks,interpx,xdata):
         diffs = np.absolute(xdata-xval)
         locs.append(diffs.argmin())
     return np.sort(np.array(locs))   # note this returns peaks with reference to .values argument...its not absolute
+
+def distance3D(p1,p2) -> float:
+    """Returns distance between two points"""
+    d = 0
+    for i in range(3):
+        d += np.abs(p1[i]-p2[i])
+    return d
+
+def pathAccelJerk(xpath,ypath,zpath,fs):
+    xdata = xpath.values
+    ydata = ypath.values
+    zdata = zpath.values
+    fs = 1/fs
+
+    # x 
+    xvelocity = np.gradient(xdata,fs)
+    xaccel = np.gradient(xvelocity,fs)
+    xjerk = np.gradient(xaccel,fs)
+    # y 
+    yvelocity = np.gradient(ydata,fs)
+    yaccel = np.gradient(yvelocity,fs)
+    yjerk = np.gradient(yaccel,fs)
+    # z 
+    zvelocity = np.gradient(zdata,fs)
+    zaccel = np.gradient(zvelocity,fs)
+    zjerk = np.gradient(zaccel,fs)
+
+
+    accel_rms = np.sqrt(xaccel.dot(xaccel)/xaccel.size) + np.sqrt(yaccel.dot(yaccel)/yaccel.size) + np.sqrt(zaccel.dot(zaccel)/zaccel.size)
+    jerk_rms = np.sqrt(xjerk.dot(xjerk)/xjerk.size) + np.sqrt(yjerk.dot(yjerk)/yjerk.size) + np.sqrt(zjerk.dot(zjerk)/zjerk.size)
+
+    #normalize based on speed
+    distance = distance3D((xdata[0],ydata[0],zdata[0]), (xdata[-1],ydata[-1],zdata[-1]))
+    time = fs * len(xdata)
+    speed = distance/time
+
+    accel_norm = accel_rms/speed
+    jerk_norm = jerk_rms/speed
+
+    return accel_norm,jerk_norm

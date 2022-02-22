@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import ranksums
 
-from functions.SessionDataObject import SessionDataObject
 path_to_miguel = "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\002\\2022-01-28"
 miguel = SessionDataObject(path_to_miguel,False,1.75)
 path_to_subject =  "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\003\\2022-02-11"
@@ -53,7 +52,8 @@ plt.show()
 
 
 # %% joint angles
-labels=['lightblue','pink','lightblue','pink','lightblue','pink']
+# labels=['lightblue','pink','lightblue','pink','lightblue','pink']
+labels=['#5ab4ac','#d8b365','#5ab4ac','#d8b365','#5ab4ac','#d8b365']
 miguel_angles = []
 miguel_angles.append(miguel.r_hip_walking)
 miguel_angles.append(miguel.l_hip_walking)
@@ -107,6 +107,60 @@ for i in bplot['boxes']:
 plt.show()
 
 
+# %%
+plt.subplot(1,5,1)
+bplot1 = plt.boxplot([miguel_angles[0],subject_angles[0],miguel_angles[1],subject_angles[1]],labels=['Control\nR','Subject\nR','Control\nL','Subject\nL'],patch_artist=True,widths=0.5)
+j=0
+for i in bplot1['boxes']:
+    i.set_facecolor(labels[j])
+    j+=1
+plt.title('Hip Flexion Angles\n(degrees)')
+plt.box(False)
+
+plt.subplot(1,5,2)
+bplot2 = plt.boxplot([miguel_angles[2],subject_angles[2],miguel_angles[3],subject_angles[3]],labels=['Control\nR','Subject\nR','Control\nL','Subject\nL'],patch_artist=True,widths=0.5)
+j=0
+for i in bplot2['boxes']:
+    i.set_facecolor(labels[j])
+    j+=1
+plt.title('Knee Flexion Angles\n(degrees)')
+plt.box(False)
+
+plt.subplot(1,5,3)
+control_jerk=miguel.markerless_output_data['Thorax_Jerk'].values
+control_jerk=control_jerk[~np.isnan(control_jerk)]
+subject_jerk=subject.markerless_output_data['Thorax_Jerk'].values
+subject_jerk=subject_jerk[~np.isnan(subject_jerk)]
+bplot3 = plt.boxplot([control_jerk,subject_jerk],labels=['Control','Subject'],patch_artist=True,widths=0.5)
+j=0
+for i in bplot3['boxes']:
+    i.set_facecolor(labels[j])
+    j+=1
+plt.title('Thorax Jerk\n($m^3/s)$')
+plt.box(False)
+
+plt.subplot(1,5,4)
+control_jerk=miguel.markerless_output_data['Pelvis_Jerk'].values
+control_jerk=control_jerk[~np.isnan(control_jerk)]
+subject_jerk=subject.markerless_output_data['Pelvis_Jerk'].values
+subject_jerk=subject_jerk[~np.isnan(subject_jerk)]
+bplot4 = plt.boxplot([control_jerk,subject_jerk],labels=['Control','Subject'],patch_artist=True,widths=0.5)
+j=0
+for i in bplot4['boxes']:
+    i.set_facecolor(labels[j])
+    j+=1
+plt.title('Pelvis Jerk\n($m^3/s)$')
+plt.box(False)
+
+plt.subplot(1,5,5)
+bplot5 = plt.boxplot([miguel.markerless_step_length,subject.markerless_step_length],labels=['Control','Subject'],patch_artist=True,widths=0.5)
+j=0
+for i in bplot5['boxes']:
+    i.set_facecolor(labels[j])
+    j+=1
+plt.title('Step Length\n(Normalized to height)')
+plt.box(False)
+plt.show()
 # %%
 
 # plt.hist(miguel.markerless_step_height,alpha=0.5)
