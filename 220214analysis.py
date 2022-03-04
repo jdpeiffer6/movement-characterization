@@ -108,23 +108,43 @@ plt.show()
 
 
 # %%
+# plt.subplot(1,5,1)
+# bplot1 = plt.boxplot([miguel_angles[0],subject_angles[0],miguel_angles[1],subject_angles[1]],labels=['Control\nR','Subject\nR','Control\nL','Subject\nL'],patch_artist=True,widths=0.5)
+# j=0
+# for i in bplot1['boxes']:
+#     i.set_facecolor(labels[j])
+#     j+=1
+# plt.title('Hip Flexion Angles\n(degrees)')
+# plt.box(False)
+
+# plt.subplot(1,5,2)
+# bplot2 = plt.boxplot([miguel_angles[2],subject_angles[2],miguel_angles[3],subject_angles[3]],labels=['Control\nR','Subject\nR','Control\nL','Subject\nL'],patch_artist=True,widths=0.5)
+# j=0
+# for i in bplot2['boxes']:
+#     i.set_facecolor(labels[j])
+#     j+=1
+# plt.title('Knee Flexion Angles\n(degrees)')
+# plt.box(False)
+
 plt.subplot(1,5,1)
-bplot1 = plt.boxplot([miguel_angles[0],subject_angles[0],miguel_angles[1],subject_angles[1]],labels=['Control\nR','Subject\nR','Control\nL','Subject\nL'],patch_artist=True,widths=0.5)
+bplot1 = plt.boxplot([list(miguel_angles[0])+list(miguel_angles[1]),list(subject_angles[0])+list(subject_angles[1])],labels=['Control','Subject'],patch_artist=True,widths=0.5)
 j=0
 for i in bplot1['boxes']:
     i.set_facecolor(labels[j])
     j+=1
 plt.title('Hip Flexion Angles\n(degrees)')
 plt.box(False)
+print(ranksums(list(miguel_angles[0])+list(miguel_angles[1]),list(subject_angles[0])+list(subject_angles[1])))
 
 plt.subplot(1,5,2)
-bplot2 = plt.boxplot([miguel_angles[2],subject_angles[2],miguel_angles[3],subject_angles[3]],labels=['Control\nR','Subject\nR','Control\nL','Subject\nL'],patch_artist=True,widths=0.5)
+bplot2 = plt.boxplot([list(miguel_angles[2])+list(miguel_angles[3]),list(subject_angles[2])+list(subject_angles[3])],labels=['Control','Subject'],patch_artist=True,widths=0.5)
 j=0
 for i in bplot2['boxes']:
     i.set_facecolor(labels[j])
     j+=1
 plt.title('Knee Flexion Angles\n(degrees)')
 plt.box(False)
+print(ranksums(list(miguel_angles[2])+list(miguel_angles[3]),list(subject_angles[2])+list(subject_angles[3])))
 
 plt.subplot(1,5,3)
 control_jerk=miguel.markerless_output_data['Thorax_Jerk'].values
@@ -138,6 +158,7 @@ for i in bplot3['boxes']:
     j+=1
 plt.title('Thorax Jerk\n($m^3/s)$')
 plt.box(False)
+print(ranksums(control_jerk,subject_jerk))
 
 plt.subplot(1,5,4)
 control_jerk=miguel.markerless_output_data['Pelvis_Jerk'].values
@@ -151,6 +172,7 @@ for i in bplot4['boxes']:
     j+=1
 plt.title('Pelvis Jerk\n($m^3/s)$')
 plt.box(False)
+print(ranksums(control_jerk,subject_jerk))
 
 plt.subplot(1,5,5)
 bplot5 = plt.boxplot([miguel.markerless_step_length,subject.markerless_step_length],labels=['Control','Subject'],patch_artist=True,widths=0.5)
@@ -160,6 +182,7 @@ for i in bplot5['boxes']:
     j+=1
 plt.title('Step Length\n(Normalized to height)')
 plt.box(False)
+print(ranksums(miguel.markerless_step_length,subject.markerless_step_length))
 plt.show()
 # %%
 

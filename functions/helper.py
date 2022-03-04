@@ -1,8 +1,8 @@
 from turtle import speed
 import pandas as pd
 import os
-from scipy import signal
 import numpy as np
+import matplotlib.pyplot as plt
 
 def readTaskCSV(path: str) -> pd.DataFrame:
     """Takes a path to specific session folder (marker or markerless) and returns a dataframe of the information"""
@@ -71,6 +71,40 @@ def pathAccelJerk(xpath,ypath,zpath,fs):
     zaccel = np.gradient(zvelocity,fs)
     zjerk = np.gradient(zaccel,fs)
 
+    # plt.subplot(4,4,1)
+    # plt.plot(xdata)
+    # plt.subplot(4,4,2)
+    # plt.plot(ydata)
+    # plt.subplot(4,4,3)
+    # plt.plot(zdata)
+
+    # plt.subplot(4,4,5)
+    # plt.plot(xvelocity)
+    # plt.subplot(4,4,6)
+    # plt.plot(yvelocity)
+    # plt.subplot(4,4,7)
+    # plt.plot(zvelocity)
+    # plt.subplot(4,4,8)
+    # plt.plot(np.abs(xvelocity)+np.abs(yvelocity)+np.abs(zvelocity))
+
+    # plt.subplot(4,4,9)
+    # plt.plot(xaccel)
+    # plt.subplot(4,4,10)
+    # plt.plot(yaccel)
+    # plt.subplot(4,4,11)
+    # plt.plot(zaccel)
+    # plt.subplot(4,4,12)
+    # plt.plot(np.abs(xaccel)+np.abs(yaccel)+np.abs(zaccel))
+
+    # plt.subplot(4,4,13)
+    # plt.plot(xjerk)
+    # plt.subplot(4,4,14)
+    # plt.plot(yjerk)
+    # plt.subplot(4,4,15)
+    # plt.plot(zjerk)
+    # plt.subplot(4,4,16)
+    # plt.plot(np.abs(xjerk)+np.abs(yjerk)+np.abs(zjerk))
+    # plt.show()
 
     accel_rms = np.sqrt(xaccel.dot(xaccel)/xaccel.size) + np.sqrt(yaccel.dot(yaccel)/yaccel.size) + np.sqrt(zaccel.dot(zaccel)/zaccel.size)
     jerk_rms = np.sqrt(xjerk.dot(xjerk)/xjerk.size) + np.sqrt(yjerk.dot(yjerk)/yjerk.size) + np.sqrt(zjerk.dot(zjerk)/zjerk.size)
@@ -83,4 +117,7 @@ def pathAccelJerk(xpath,ypath,zpath,fs):
     accel_norm = accel_rms/speed
     jerk_norm = jerk_rms/speed
 
-    return accel_norm,jerk_norm
+    velocitys = np.abs(xvelocity)+np.abs(yvelocity)+np.abs(zvelocity)
+    velocitys_interp = np.interp(np.linspace(0,1,200),np.linspace(0,1,velocitys.size),velocitys)
+    plot_stuff = velocitys_interp
+    return accel_norm,jerk_norm,plot_stuff

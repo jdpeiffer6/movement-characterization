@@ -6,7 +6,6 @@ import pandas as pd
 import glob
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-import mpld3
 from scipy import signal
 from scipy.interpolate import interp1d
 import numpy as np
@@ -104,6 +103,7 @@ class SessionDataObject:
     def analyze_NG(self,plot):
         ng_layout_keys = getIndexNames('NGLayout',self.marker_task_labels)
         ng_keys = getIndexNames('NG',self.marker_task_labels)
+        # plt.rcParams['figure.figsize'] = [10, 8]
 
         # establish baseline position
         static_data = self.marker_data[ng_layout_keys[0]]
@@ -114,83 +114,69 @@ class SessionDataObject:
         block_coords = (block_x,block_y,block_z)
         
         list_of_ends = []
+        pplot_avg = np.zeros(200)
+        tplot_avg = np.zeros(200)
         for i in range(len(ng_keys)):
             data = self.marker_data[ng_keys[i]]
-            if self.marker_task_labels['Side'][ng_keys[i]] == 'R':
-                if self.id == '003':
-                    list_of_ends = [228,204,194,180,197,170,189,205,179,164]
-                    end = list_of_ends[i]
-                elif self.id == '001':
-                    list_of_ends = [155,141,122,138,135,137,118,138,132,137]
-                    end = list_of_ends[i]
-                else:
-                    plt.plot(data['RPOI Z'])
-                    plt.show()
-                    end = int(input("where to truncate: "))
-                    list_of_ends.append(end)
-                pstart = ( data['RPOI X'][0],data['RPOI Y'][0],data['RPOI Z'][0])
-                tstart = ( data['RTHU X'][0],data['RTHU Y'][0],data['RTHU Z'][0])
+            if self.marker_task_labels['Side'][ng_keys[i]] == 'L':
+                data['RPOI X'] = data['LPOI X']
+                data['RPOI Y'] = data['LPOI Y']
+                data['RPOI Z'] = data['LPOI Z']
+                data['RTHU X'] = data['LTHU X']
+                data['RTHU Y'] = data['LTHU Y']
+                data['RTHU Z'] = data['LTHU Z']
 
-                p_old = pstart
-                t_old = tstart
-                p_dist = 0
-                t_dist = 0
-                mga = 0
-                mga_i = 0
-                for j in range(end):
-                    pxyz = ( data['RPOI X'][j], data['RPOI Y'][j], data['RPOI Z'][j])
-                    txyz = ( data['RTHU X'][j], data['RTHU Y'][j], data['RTHU Z'][j])
-                    
-                    p_dist += distance3D(p_old,pxyz)    
-                    t_dist += distance3D(t_old,txyz)    
-                    p_old = pxyz
-                    t_old = txyz
-                    #mga
-                    ga = distance3D(pxyz,txyz)
-                    if ga > mga:
-                        mga = ga
-                        mga_i = j
-                #calculate accel/jerk
-                p_accel,p_jerk = pathAccelJerk(data['RPOI X'][:end],data['RPOI Y'][:end],data['RPOI Z'][:end],self.marker_fs)
-                t_accel,t_jerk = pathAccelJerk(data['RTHU X'][:end],data['RTHU Y'][:end],data['RTHU Z'][:end],self.marker_fs)                      
+            if self.id == '003':
+                list_of_starts = [98,90,88,80,98,46,70,83,70,57]
+                start = list_of_starts[i]
+                list_of_ends = [228,204,194,180,197,170,189,205,179,164]
+                end = list_of_ends[i]
+                cc = '#d8b365'
+            elif self.id == '001':
+                list_of_starts = [57,41,32,35,31,29,26,35,37,34]
+                start = list_of_starts[i]
+                list_of_ends = [155,141,122,138,135,137,118,138,132,137]
+                end = list_of_ends[i]
+                cc = '#5ab4ac'
             else:
-                if self.id == '003':
-                    list_of_ends = [228,204,194,180,197,170,189,205,179,164]
-                    end = list_of_ends[i]
-                elif self.id == '001':
-                    list_of_ends = [155,141,122,138,135,137,118,138,132,137]
-                    end = list_of_ends[i]
-                else:
-                    plt.plot(data['LPOI Z'])
-                    plt.show()
-                    end = int(input("where to truncate: "))
-                    list_of_ends.append(end)
-                pstart = ( data['LPOI X'][0],data['LPOI Y'][0],data['LPOI Z'][0])
-                tstart = ( data['LTHU X'][0],data['LTHU Y'][0],data['LTHU Z'][0])
+                plt.plot(data['RPOI Z'])
+                plt.show()
+                end = int(input("where to truncate: "))
+                list_of_ends.append(end)
+            pstart = ( data['RPOI X'][0],data['RPOI Y'][0],data['RPOI Z'][0])
+            tstart = ( data['RTHU X'][0],data['RTHU Y'][0],data['RTHU Z'][0])
 
-                p_old = pstart
-                t_old = tstart
-                p_dist = 0
-                t_dist = 0
-                mga = 0
-                mga_i = 0
-                for j in range(end):
-                    pxyz = ( data['LPOI X'][j], data['LPOI Y'][j], data['LPOI Z'][j])
-                    txyz = ( data['LTHU X'][j], data['LTHU Y'][j], data['LTHU Z'][j])
-                    
-                    p_dist += distance3D(p_old,pxyz)    
-                    t_dist += distance3D(t_old,txyz)    
-                    p_old = pxyz
-                    t_old = txyz
-                    #mga
-                    ga = distance3D(pxyz,txyz)
-                    if ga > mga:
-                        mga = ga
-                        mga_i = j
-                #calculate accel/jerk
-                p_accel,p_jerk = pathAccelJerk(data['LPOI X'][:end],data['LPOI Y'][:end],data['LPOI Z'][:end],self.marker_fs)
-                t_accel,t_jerk = pathAccelJerk(data['LTHU X'][:end],data['LTHU Y'][:end],data['LTHU Z'][:end],self.marker_fs)
-
+            p_old = pstart
+            t_old = tstart
+            p_dist = 0
+            t_dist = 0
+            mga = 0
+            mga_i = 0
+            for j in range(end):
+                pxyz = ( data['RPOI X'][j], data['RPOI Y'][j], data['RPOI Z'][j])
+                txyz = ( data['RTHU X'][j], data['RTHU Y'][j], data['RTHU Z'][j])
+                
+                p_dist += distance3D(p_old,pxyz)    
+                t_dist += distance3D(t_old,txyz)    
+                p_old = pxyz
+                t_old = txyz
+                #mga
+                ga = distance3D(pxyz,txyz)
+                if ga > mga:
+                    mga = ga
+                    mga_i = j
+            
+            #calculate accel/jerk
+            p_accel,p_jerk,pplot_stuff = pathAccelJerk(data['RPOI X'][start:end],data['RPOI Y'][start:end],data['RPOI Z'][start:end],self.marker_fs)
+            t_accel,t_jerk,tplot_stuff = pathAccelJerk(data['RTHU X'][start:end],data['RTHU Y'][start:end],data['RTHU Z'][start:end],self.marker_fs)                      
+            pplot_avg = np.vstack((pplot_avg,pplot_stuff))
+            tplot_avg = np.vstack((tplot_avg,tplot_stuff))
+            if True:
+                plt.subplot(1,2,1)
+                plt.plot(np.linspace(0,1,pplot_stuff.size),pplot_stuff,color = 'grey',alpha=0.4)
+                plt.subplot(1,2,2)
+                plt.plot(np.linspace(0,1,pplot_stuff.size),tplot_stuff,color = 'grey',alpha=0.4)
+            
             #calculate path length
             p_ideal_distance = distance3D(pstart,pxyz)
             t_ideal_distance = distance3D(tstart,txyz)
@@ -207,6 +193,23 @@ class SessionDataObject:
             self.marker_output_data.loc[ng_keys[i],'MGA'] = mga
             self.marker_output_data.loc[ng_keys[i],'MGA_t'] = mga_i/end
 
+        pplot_avg = np.delete(pplot_avg, (0), axis=0)
+        tplot_avg = np.delete(tplot_avg, (0), axis=0)
+
+        pplot_std = np.std(pplot_avg,axis=0)
+        tplot_std = np.std(tplot_avg,axis=0)
+        pplot_mean = np.mean(pplot_avg,axis=0)
+        tplot_mean = np.mean(tplot_avg,axis=0)
+        plt.subplot(1,2,1)
+        plt.plot(np.linspace(0,1,pplot_stuff.size),pplot_mean,linewidth=2,color= 'black')
+        plt.fill_between(np.linspace(0,1,pplot_stuff.size),pplot_mean-pplot_std,pplot_mean+pplot_std,color=cc)
+        plt.xlabel('Pointer Fraction of Movement Completion')
+        plt.ylabel('Movement Speed\n$mm/s$')
+        plt.subplot(1,2,2)
+        plt.plot(np.linspace(0,1,pplot_stuff.size),tplot_mean,linewidth=2,color='black')
+        plt.fill_between(np.linspace(0,1,tplot_stuff.size),tplot_mean-tplot_std,tplot_mean+tplot_std,color=cc)
+        plt.xlabel('Thumb Fraction of Movement Completion')
+        plt.show()
         if(plot):
             ax = plt.axes(projection ='3d')
             ax.scatter(block_x,block_y,block_z)
