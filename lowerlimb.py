@@ -5,9 +5,9 @@ import numpy as np
 from scipy.stats import ranksums
 
 path_to_miguel = "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\002\\2022-01-28"
-miguel = SessionDataObject(path_to_miguel,False,1.75)
+miguel = SessionDataObject(path_to_miguel,False,1.75,walking=True,ng=False)
 path_to_subject =  "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\003\\2022-02-11"
-subject = SessionDataObject(path_to_subject,False,1.7)
+subject = SessionDataObject(path_to_subject,False,1.7,walking=True,ng=False)
 
 # %% pelvis accel
 control_accel=miguel.markerless_output_data['Pelvis_Accel'].values

@@ -9,10 +9,10 @@ from matplotlib.gridspec import GridSpec
 from scipy import signal
 from scipy.interpolate import interp1d
 import numpy as np
-from functions.helper import readTaskCSV,getIndexNames,getMarkerlessData,mapPeaks,distance3D,pathAccelJerk
+from functions.helper import pathJerkPelvis, readTaskCSV,getIndexNames,getMarkerlessData,mapPeaks,distance3D,pathAccelJerk
 
 class SessionDataObject:
-    def __init__(self, path: str,plot: bool,height: float):
+    def __init__(self, path: str,plot: bool,height: float,walking=True,ng=True):
         self.id: str = path[-14:-11]
         self.path: str = path
         self.date: str = path[-10:]
@@ -44,8 +44,10 @@ class SessionDataObject:
             self.load_markers()
         else:
             print("Could not find marker session for %s"% self.id)
-        # self.analyze_walking()
-        self.analyze_NG(self.plot)
+        if walking:
+            self.analyze_walking()
+        if ng:
+            self.analyze_NG(self.plot)
 
     def load_markerless(self):
         self.markerless_data = {}
@@ -527,26 +529,17 @@ class SessionDataObject:
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         for i in range(len(walking_keys)):
             data = getMarkerlessData(self.markerless_data,walking_keys[i],['PelvisPosX','PelvisPosY','PelvisPosZ'])
-            #z
-            # zdata = self.markerless_data[walking_keys[i]]['PelvisPosZ'].values
-            zdata = data['PelvisPosZ']
-            t = np.linspace(0,zdata.shape[0]/self.markerless_fs,zdata.shape[0])
-            zvelocity = np.gradient(zdata,1/self.markerless_fs)
-            zaccel = np.gradient(zvelocity,1/self.markerless_fs)
-            zjerk = np.gradient(zaccel,1/self.markerless_fs)
-            #y
-            # ydata = self.markerless_data[walking_keys[i]]['PelvisPosY'].values
-            ydata = data['PelvisPosY']
-            yvelocity = np.gradient(ydata,1/self.markerless_fs)
-            yaccel = np.gradient(yvelocity,1/self.markerless_fs)
-            yjerk = np.gradient(yaccel,1/self.markerless_fs)
-            #x
-            # xdata = self.markerless_data[walking_keys[i]]['PelvisPosX'].values
-            xdata = data['PelvisPosX']
-            xvelocity = np.gradient(xdata,1/self.markerless_fs)
-            xaccel = np.gradient(xvelocity,1/self.markerless_fs)
-            xjerk = np.gradient(xaccel,1/self.markerless_fs)
-
+            nj, plotstuff = pathJerkPelvis(data['PelvisPosX'],data['PelvisPosY'],data['PelvisPosZ'],self.markerless_fs)
+            xvelocity=plotstuff[0]
+            xaccel=plotstuff[1]
+            xjerk=plotstuff[2]
+            yvelocity=plotstuff[3]
+            yaccel=plotstuff[4]
+            yjerk=plotstuff[5]
+            zvelocity=plotstuff[6]
+            zaccel=plotstuff[7]
+            zjerk=plotstuff[8]
+            t = np.linspace(0,data.shape[0]/self.markerless_fs,self.markerless_fs*data.shape[0]) #check this
             if plot:
                 plt.subplot(4,3,1)
                 plt.title('X - Along Lab')
