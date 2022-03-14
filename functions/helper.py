@@ -122,10 +122,13 @@ def pathAccelJerk(xpath,ypath,zpath,fs):
     plot_stuff = velocitys_interp
     return accel_norm,jerk_norm,plot_stuff
 
-def pathJerkPelvis(xpath,ypath,zpath,fs):
-    xdata = xpath.values
-    ydata = ypath.values
-    zdata = zpath.values
+def normJerk(xpath,ypath,zpath,fs):
+    # xdata = xpath.values
+    # ydata = ypath.values
+    # zdata = zpath.values
+    xdata = xpath
+    ydata = ypath
+    zdata = zpath
     fs = 1/fs
 
     # x 
@@ -142,7 +145,7 @@ def pathJerkPelvis(xpath,ypath,zpath,fs):
     zjerk = np.gradient(zaccel,fs)
 
     # C:\Users\jd\Zotero\storage\7W34ZKMW\van Kordelaar et al. - 2014 - Impact of Time on Quality of Motor Control of the .pdf
-    jerk = xjerk + yjerk + zjerk
+    jerk = xjerk**2 + yjerk**2 + zjerk**2
     md = fs * len(xdata)
     l = distance3D((xdata[0],ydata[0],zdata[0]), (xdata[-1],ydata[-1],zdata[-1]))   # I do not know if this is right...its just the straight line distance from beginning to end of trial
     nj = np.sqrt(0.5 * np.trapz(np.square(jerk)) * md**5/l**2)

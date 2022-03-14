@@ -9,7 +9,7 @@ from matplotlib.gridspec import GridSpec
 from scipy import signal
 from scipy.interpolate import interp1d
 import numpy as np
-from functions.helper import pathJerkPelvis, readTaskCSV,getIndexNames,getMarkerlessData,mapPeaks,distance3D,pathAccelJerk
+from functions.helper import normJerk, readTaskCSV,getIndexNames,getMarkerlessData,mapPeaks,distance3D,pathAccelJerk
 
 class SessionDataObject:
     def __init__(self, path: str,plot: bool,height: float,walking=True,ng=True):
@@ -45,7 +45,7 @@ class SessionDataObject:
         else:
             print("Could not find marker session for %s"% self.id)
         if walking:
-            self.analyze_walking()
+            self.analyze_walking(self.plot)
         if ng:
             self.analyze_NG(self.plot)
 
@@ -94,12 +94,15 @@ class SessionDataObject:
         self.marker_output_data = self.marker_task_labels
 
 
-    def analyze_walking(self):
-        self.calculate_pelvis_pos(self.plot)
-        self.calculate_joint_angles_walking(self.plot)
-        self.calculate_step_height(self.plot)
-        self.calculate_step_width(self.plot)
-        self.calculate_thorax_pos(self.plot)
+    def analyze_walking(self,plot):
+        self.calculate_step_width2(True)
+        self.interpolate_walking(plot)
+        self.calculate_pelvis_jerk_step(True)
+        self.calculate_thorax_jerk_step(False)
+        self.calculate_joint_angles_walking(plot)
+        self.calculate_step_height(plot)
+        self.calculate_step_width(plot)
+        self.calculate_thorax_pos(plot)
         # self.calculate_step_width2(True)
         
     def analyze_NG(self,plot):
@@ -341,13 +344,12 @@ class SessionDataObject:
             xmin = min(data['L_HEELX'])
             xmax = max(data['L_HEELX'])
             l_xnew = np.linspace(xmin,xmax,num = data['L_HEELX'].shape[0],endpoint=True)
-            x = data['L_HEELX']
-            z = data['L_HEELZ']
-            f_interp = interp1d(x,z)    #TODO: may want to add cubic interpolation but kinda too lazy rn
+            x = data['L_HEELX'].values
+            z = data['L_HEELZ'].values
+            f_interp = interp1d(x,z)
             l_znew = f_interp(l_xnew)
             self.markerless_data[walking_keys[i]]['L_HEELZ_WRT_X'] = np.nan
             self.markerless_data[walking_keys[i]]['L_HEELZ_WRT_X'][data.index] = l_znew
-            # l_peaks = signal.find_peaks(-1*l_znew,threshold = -0.05,distance=50)
             l_peaks_interp = signal.find_peaks(-1*l_znew,threshold = -0.05,distance=50)
             l_peaks_real = mapPeaks(l_peaks_interp,l_xnew,data['L_HEELX'])
 
@@ -377,13 +379,13 @@ class SessionDataObject:
                 
                 plt.suptitle("Interpolated")
                 plt.show()
-            # peakdict.update({walking_keys[i]:[r_peaks[0],l_peaks[0]]})
             peakdict.update({walking_keys[i]:[r_peaks_real,l_peaks_real]})
+        self.peakdict = peakdict
         return peakdict
             
 
     def calculate_step_width(self,plot : bool):
-        peakdict = self.interpolate_walking(False) # returns {key:[right,left]}
+        peakdict = self.peakdict
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         step_width = []
         step_length = []
@@ -400,7 +402,6 @@ class SessionDataObject:
                 plt.scatter(data['L_HEELX'].values[l_peaks],data['L_HEELY'].values[l_peaks],c='y')
                 plt.legend(['Right Heel','Left Heel','RHS','LHS'])
                 plt.ylabel('Lab Y\n(Across)')
-                # plt.plot([heel['R_HEELX'].values[r_peaks[0]],heel['L_HEELX'].values[l_peaks[0]]], [heel['R_HEELY'].values[r_peaks[0]],heel['L_HEELY'].values[l_peaks[0]]], 'y', linestyle="--")
                 xlimmin,xlimmax = plt.xlim()
 
                 plt.subplot(3,1,1)
@@ -474,13 +475,13 @@ class SessionDataObject:
 
                 plt.subplot(3,1,1)
                 plt.plot(data['L_HEELX'],data['L_HEELZ'],'g')
-                plt.scatter(data['L_HEELX'][lhs],data['L_HEELZ'][lhs],c='y')
+                plt.scatter(data['L_HEELX'][lto],data['L_HEELZ'][lto],c='y')
                 plt.ylabel('Lab Z\n(Vertical)')
                 plt.xlim([xminlim,xmaxlim])
 
                 plt.subplot(3,1,3)
                 plt.plot(data['R_HEELX'],data['R_HEELZ'],'b')
-                plt.scatter(data['R_HEELX'][rhs],data['R_HEELZ'][rhs],c='r')
+                plt.scatter(data['R_HEELX'][rto],data['R_HEELZ'][rto],c='r')
                 plt.ylabel('Lab Z\n(Vertical)')
                 plt.xlabel('Lab X\n(Along)')
                 plt.xlim([xminlim,xmaxlim])
@@ -522,6 +523,64 @@ class SessionDataObject:
                 plt.show()
         self.markerless_step_height = np.array(step_height)/self.height
 
+    def calculate_pelvis_jerk_step(self,plot:bool):
+        self.markerless_output_data['Pelvis_Jerk'] = np.nan
+
+        walking_keys = getIndexNames('Walking',self.markerless_task_labels)
+        for i in range(len(walking_keys)):
+            r_peaks = self.peakdict[walking_keys[i]][0]
+            l_peaks = self.peakdict[walking_keys[i]][1]
+            data = getMarkerlessData(self.markerless_data,walking_keys[i],['PelvisPosX','PelvisPosY','PelvisPosZ'])
+
+            jerks = []
+            for _ in range(r_peaks.size+l_peaks.size):
+                if r_peaks.size ==0 or l_peaks.size ==0:
+                    break
+                r_min = np.min(r_peaks)
+                l_min = np.min(l_peaks)
+                if r_min < l_min:
+                    min=r_min
+                    max=l_min
+                    r_peaks = np.delete(r_peaks,0)
+                else:
+                    min=l_min
+                    max=r_min
+                    l_peaks = np.delete(l_peaks,0)
+                nj, plotstuff = normJerk(data['PelvisPosX'].values[min:max],data['PelvisPosY'].values[min:max],data['PelvisPosZ'].values[min:max],self.markerless_fs)
+                # if plot:
+                #     plt.subplot(4,3,1)
+                #     plt.plot(data['PelvisPosX'].values[min:max])
+                #     plt.subplot(4,3,2)
+                #     plt.plot(data['PelvisPosY'].values[min:max])
+                #     plt.subplot(4,3,3)
+                #     plt.plot(data['PelvisPosZ'].values[min:max])
+                #     plt.subplot(4,3,4)
+                #     plt.plot(plotstuff[0])
+                #     plt.subplot(4,3,5)
+                #     plt.plot(plotstuff[3])
+                #     plt.subplot(4,3,6)
+                #     plt.plot(plotstuff[6])
+
+                #     plt.subplot(4,3,7)
+                #     plt.plot(plotstuff[1])
+                #     plt.subplot(4,3,8)
+                #     plt.plot(plotstuff[4])
+                #     plt.subplot(4,3,9)
+                #     plt.plot(plotstuff[7])
+
+                #     plt.subplot(4,3,10)
+                #     plt.plot(plotstuff[2])
+                #     plt.subplot(4,3,11)
+                #     plt.plot(plotstuff[5])
+                #     plt.subplot(4,3,12)
+                #     plt.plot(plotstuff[8])
+                #     plt.title("Hi")
+                #     plt.show()
+                jerks.append(nj)
+        plt.hist(jerks)
+        plt.show()
+        self.pelvis_jerks = jerks
+
     def calculate_pelvis_pos(self,plot:bool):
         self.markerless_output_data['Pelvis_Jerk'] = np.nan
         self.markerless_output_data['Pelvis_Accel'] = np.nan
@@ -529,7 +588,7 @@ class SessionDataObject:
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         for i in range(len(walking_keys)):
             data = getMarkerlessData(self.markerless_data,walking_keys[i],['PelvisPosX','PelvisPosY','PelvisPosZ'])
-            nj, plotstuff = pathJerkPelvis(data['PelvisPosX'],data['PelvisPosY'],data['PelvisPosZ'],self.markerless_fs)
+            nj, plotstuff = normJerk(data['PelvisPosX'],data['PelvisPosY'],data['PelvisPosZ'],self.markerless_fs)
             xvelocity=plotstuff[0]
             xaccel=plotstuff[1]
             xjerk=plotstuff[2]
@@ -544,15 +603,15 @@ class SessionDataObject:
                 plt.subplot(4,3,1)
                 plt.title('X - Along Lab')
                 plt.ylabel('Position (m)')
-                plt.plot(t,xdata)
+                plt.plot(t,data['PelvisPosX'])
 
                 plt.subplot(4,3,2)
                 plt.title('Y - Across Lab')
-                plt.plot(t,ydata)
+                plt.plot(t,data['PelvisPosY'])
 
                 plt.subplot(4,3,3)
                 plt.title('Z - Vertical Lab')
-                plt.plot(t,zdata)
+                plt.plot(t,data['PelvisPosZ'])
 
                 plt.subplot(4,3,4)
                 plt.ylabel('Velocity (m/s)')
@@ -586,35 +645,6 @@ class SessionDataObject:
                 plt.plot(t,zjerk)
 
                 plt.suptitle('Pelvis Measurements vs Time')
-            
-            #truncate if there is artifact
-            # threshold = np.mean(xvelocity) + 3 * np.std(xvelocity)
-            threshold = 5
-            while np.any(np.abs(xvelocity)>threshold):
-                #this is sometimes due to the disappearing and reappearing of the reconstruction in theia...so could look at how
-                # the nan data is removed...but this works
-                print("\nTruncating due to artifact")
-                locs = np.where(np.abs(xvelocity)>threshold)[-1]
-                dist = 30
-                #z
-                zdata = zdata[locs[-1]+dist:]
-                zvelocity = zvelocity[locs[-1]+dist:]
-                zaccel = zaccel[locs[-1]+dist:]
-                zjerk = zjerk[locs[-1]+dist:]
-                #y
-                ydata = ydata[locs[-1]+dist:]
-                yvelocity = yvelocity[locs[-1]+dist:]
-                yaccel = yaccel[locs[-1]+dist:]
-                yjerk = yjerk[locs[-1]+dist:]
-                #x
-                xdata = xdata[locs[-1]+dist:]
-                xvelocity = xvelocity[locs[-1]+dist:]
-                xaccel = xaccel[locs[-1]+dist:]
-                xjerk = xjerk[locs[-1]+dist:]
-                if plot: 
-                    for jd in range(1,13):
-                        plt.subplot(4,3,jd)
-                        plt.axvline(t[locs[-1]+dist],color='r')
 
             # https://stackoverflow.com/questions/5613244/root-mean-square-in-numpy-and-complications-of-matrix-and-arrays-of-numpy
             accel_rms = np.sqrt(xaccel.dot(xaccel)/xaccel.size) + np.sqrt(yaccel.dot(yaccel)/yaccel.size) + np.sqrt(zaccel.dot(zaccel)/zaccel.size)
@@ -640,6 +670,49 @@ class SessionDataObject:
             self.markerless_output_data.loc[walking_keys[i],'Walking Speed'] = speed
             self.markerless_output_data.loc[walking_keys[i],'Pelvis_Jerk'] = normalized_jerk_rms
             self.markerless_output_data.loc[walking_keys[i],'Pelvis_Accel'] = normalized_accel_rms
+
+    def calculate_thorax_jerk_step(self,plot:bool):
+        self.markerless_output_data['Pelvis_Jerk'] = np.nan
+
+        walking_keys = getIndexNames('Walking',self.markerless_task_labels)
+        for i in range(len(walking_keys)):
+            r_peaks = self.peakdict[walking_keys[i]][0]
+            l_peaks = self.peakdict[walking_keys[i]][1]
+            data = getMarkerlessData(self.markerless_data,walking_keys[i],['Distal ThoraxX','Distal ThoraxY','Distal ThoraxZ'])
+
+            jerks = []
+            for _ in range(r_peaks.size+l_peaks.size):
+                if r_peaks.size ==0 or l_peaks.size ==0:
+                    break
+                r_min = np.min(r_peaks)
+                l_min = np.min(l_peaks)
+                if r_min < l_min:
+                    min=r_min
+                    max=l_min
+                    r_peaks = np.delete(r_peaks,0)
+                else:
+                    min=l_min
+                    max=r_min
+                    l_peaks = np.delete(l_peaks,0)
+                nj, plotstuff = normJerk(data['Distal ThoraxX'].values[min:max],data['Distal ThoraxY'].values[min:max],data['Distal ThoraxZ'].values[min:max],self.markerless_fs)
+                if plot:
+                    plt.subplot(2,3,1)
+                    plt.plot(data['Distal ThoraxX'].values[min:max])
+                    plt.subplot(2,3,2)
+                    plt.plot(data['Distal ThoraxY'].values[min:max])
+                    plt.subplot(2,3,3)
+                    plt.plot(data['Distal ThoraxZ'].values[min:max])
+                    plt.subplot(2,3,4)
+                    plt.plot(plotstuff[0])
+                    plt.subplot(2,3,5)
+                    plt.plot(plotstuff[3])
+                    plt.subplot(2,3,6)
+                    plt.plot(plotstuff[6])
+                    plt.show()
+                jerks.append(nj)
+        plt.hist(jerks)
+        plt.show()
+        self.thorax_jerks = jerks
 
     def calculate_thorax_pos(self, plot:bool):
         self.markerless_output_data['Thorax_Jerk'] = np.nan
