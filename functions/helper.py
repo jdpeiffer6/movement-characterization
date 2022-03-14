@@ -123,12 +123,12 @@ def pathAccelJerk(xpath,ypath,zpath,fs):
     return accel_norm,jerk_norm,plot_stuff
 
 def normJerk(xpath,ypath,zpath,fs):
-    # xdata = xpath.values
-    # ydata = ypath.values
-    # zdata = zpath.values
-    xdata = xpath
-    ydata = ypath
-    zdata = zpath
+    xdata = xpath.values
+    ydata = ypath.values
+    zdata = zpath.values
+    # xdata = xpath
+    # ydata = ypath
+    # zdata = zpath
     fs = 1/fs
 
     # x 
