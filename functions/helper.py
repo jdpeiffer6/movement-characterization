@@ -52,6 +52,15 @@ def distance3D(p1,p2) -> float:
         d += np.abs(p1[i]-p2[i])
     return d
 
+def distancePath(xdata,ydata,zdata) -> float:
+    """Returns distance along a XYZ trajectory"""
+    d = 0.0
+    for i in range(1,xdata.size):
+        d += np.abs(xdata[i-1]-xdata[i])
+        d += np.abs(ydata[i-1]-ydata[i])
+        d += np.abs(zdata[i-1]-zdata[i])
+    return d
+
 def pathAccelJerk(xpath,ypath,zpath,fs):
     xdata = xpath.values
     ydata = ypath.values
@@ -147,7 +156,8 @@ def normJerk(xpath,ypath,zpath,fs):
     # C:\Users\jd\Zotero\storage\7W34ZKMW\van Kordelaar et al. - 2014 - Impact of Time on Quality of Motor Control of the .pdf
     jerk = xjerk**2 + yjerk**2 + zjerk**2
     md = fs * len(xdata)
-    l = distance3D((xdata[0],ydata[0],zdata[0]), (xdata[-1],ydata[-1],zdata[-1]))   # I do not know if this is right...its just the straight line distance from beginning to end of trial
+    l = distance3D((xdata[0],ydata[0],zdata[0]), (xdata[-1],ydata[-1],zdata[-1]))   # "C:\Users\jd\Zotero\storage\CYV864FW\Hogan and Sternad - 2009 - Sensitivity of Smoothness Measures to Movement Dur.pdf"
+    # l = distancePath(xdata,ydata,zdata)
     nj = np.sqrt(0.5 * np.trapz(np.square(jerk)) * md**5/l**2)
     plot_stuff = [xvelocity,xaccel,xjerk,yvelocity,yaccel,yjerk,zvelocity,zaccel,zjerk]
     return nj,plot_stuff

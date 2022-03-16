@@ -29,3 +29,5 @@ plt.ylabel("Normalized Jerk RMS\n($m^4/s$)")
 a=ranksums(control_jerk,subject_jerk)
 print("Thorax Jerk: %.5f"%a[1])
 plt.show()
+
+# %%
