@@ -1,7 +1,6 @@
 import os
 import json
 from re import L
-from turtle import distance
 import pandas as pd
 import glob
 import matplotlib.pyplot as plt
@@ -9,7 +8,7 @@ from matplotlib.gridspec import GridSpec
 from scipy import signal
 from scipy.interpolate import interp1d
 import numpy as np
-from functions.helper import pathJerkPelvis, readTaskCSV,getIndexNames,getMarkerlessData,mapPeaks,distance3D,pathAccelJerk
+from functions.helper import normJerk, readTaskCSV,getIndexNames,getMarkerlessData,mapPeaks,distance3D,pathAccelJerk
 
 class SessionDataObject:
     def __init__(self, path: str,plot: bool,height: float,walking=True,ng=True):
@@ -45,7 +44,7 @@ class SessionDataObject:
         else:
             print("Could not find marker session for %s"% self.id)
         if walking:
-            self.analyze_walking()
+            self.analyze_walking(self.plot)
         if ng:
             self.analyze_NG(self.plot)
 
@@ -94,13 +93,20 @@ class SessionDataObject:
         self.marker_output_data = self.marker_task_labels
 
 
-    def analyze_walking(self):
-        self.calculate_pelvis_pos(self.plot)
-        self.calculate_joint_angles_walking(self.plot)
-        self.calculate_step_height(self.plot)
-        self.calculate_step_width(self.plot)
-        self.calculate_thorax_pos(self.plot)
-        # self.calculate_step_width2(True)
+    def analyze_walking(self,plot):
+        self.walking_angle(False)
+        self.calculate_step_width2(False)
+        self.calculate_pelvis_jerk_tandem(True)
+        self.calculate_thorax_jerk_tandem(True)
+        self.caculate_support_tandem(True)
+        self.calculate_pelvis_jerk_step(False)
+        self.calculate_thorax_jerk_step(False)
+        # self.caculate_support(False)
+        # self.interpolate_walking(plot)
+        # self.calculate_joint_angles_walking(plot)
+        # self.calculate_step_height(plot)
+        # self.calculate_step_width(plot)
+        # self.calculate_thorax_pos(plot)
         
     def analyze_NG(self,plot):
         ng_layout_keys = getIndexNames('NGLayout',self.marker_task_labels)
@@ -341,13 +347,12 @@ class SessionDataObject:
             xmin = min(data['L_HEELX'])
             xmax = max(data['L_HEELX'])
             l_xnew = np.linspace(xmin,xmax,num = data['L_HEELX'].shape[0],endpoint=True)
-            x = data['L_HEELX']
-            z = data['L_HEELZ']
-            f_interp = interp1d(x,z)    #TODO: may want to add cubic interpolation but kinda too lazy rn
+            x = data['L_HEELX'].values
+            z = data['L_HEELZ'].values
+            f_interp = interp1d(x,z)
             l_znew = f_interp(l_xnew)
             self.markerless_data[walking_keys[i]]['L_HEELZ_WRT_X'] = np.nan
             self.markerless_data[walking_keys[i]]['L_HEELZ_WRT_X'][data.index] = l_znew
-            # l_peaks = signal.find_peaks(-1*l_znew,threshold = -0.05,distance=50)
             l_peaks_interp = signal.find_peaks(-1*l_znew,threshold = -0.05,distance=50)
             l_peaks_real = mapPeaks(l_peaks_interp,l_xnew,data['L_HEELX'])
 
@@ -377,13 +382,13 @@ class SessionDataObject:
                 
                 plt.suptitle("Interpolated")
                 plt.show()
-            # peakdict.update({walking_keys[i]:[r_peaks[0],l_peaks[0]]})
             peakdict.update({walking_keys[i]:[r_peaks_real,l_peaks_real]})
+        self.peakdict = peakdict
         return peakdict
             
 
     def calculate_step_width(self,plot : bool):
-        peakdict = self.interpolate_walking(False) # returns {key:[right,left]}
+        peakdict = self.peakdict
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         step_width = []
         step_length = []
@@ -400,7 +405,6 @@ class SessionDataObject:
                 plt.scatter(data['L_HEELX'].values[l_peaks],data['L_HEELY'].values[l_peaks],c='y')
                 plt.legend(['Right Heel','Left Heel','RHS','LHS'])
                 plt.ylabel('Lab Y\n(Across)')
-                # plt.plot([heel['R_HEELX'].values[r_peaks[0]],heel['L_HEELX'].values[l_peaks[0]]], [heel['R_HEELY'].values[r_peaks[0]],heel['L_HEELY'].values[l_peaks[0]]], 'y', linestyle="--")
                 xlimmin,xlimmax = plt.xlim()
 
                 plt.subplot(3,1,1)
@@ -444,8 +448,9 @@ class SessionDataObject:
         self.markerless_step_length = np.array(step_length)/self.height
 
     def calculate_step_width2(self,plot: bool):
-        """Uses the RTO,LTO,etc from V3D...doesnt really work rn"""
+        """Uses the RTO,LTO,etc from V3D"""
         # trial_names = list(self.markerless_events.keys())
+        peakdict2 = {}
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         for trial in walking_keys:
             data = self.markerless_data[trial]
@@ -453,42 +458,67 @@ class SessionDataObject:
             lhs = np.array(self.markerless_events[trial]['LHS'])
             rto = np.array(self.markerless_events[trial]['RTO'])
             lto = np.array(self.markerless_events[trial]['LTO'])
-            rhs = np.round(rhs*100).astype(int)
-            lhs = np.round(lhs*100).astype(int)
-            rto = np.round(rto*100).astype(int)
-            lto = np.round(lto*100).astype(int)
+            rhs = np.round(rhs*self.markerless_fs).astype(int)
+            lhs = np.round(lhs*self.markerless_fs).astype(int)
+            rto = np.round(rto*self.markerless_fs).astype(int)
+            lto = np.round(lto*self.markerless_fs).astype(int)
             max_ind = np.max(data.index)
-            rhs = rhs[:np.argmax(rhs>=max_ind)]
-            lhs = lhs[:np.argmax(lhs>=max_ind)]
-            rto = rto[:np.argmax(rto>=max_ind)]
-            lto = rhs[:np.argmax(lto>=max_ind)]
+            rhs = rhs[np.where(rhs<=max_ind)]
+            lhs = lhs[np.where(lhs<=max_ind)]
+            rto = rto[np.where(rto<=max_ind)]
+            lto = lto[np.where(lto<=max_ind)]
 
             if plot:
                 plt.subplot(3,1,2)
-                plt.plot(data['R_HEELX'],data['R_HEELY'],'b',data['L_HEELX'],data['L_HEELY'],'g')
-                plt.scatter(data['R_HEELX'][rhs],data['R_HEELY'][rhs],c='r')
-                plt.scatter(data['L_HEELX'][lhs],data['L_HEELY'][lhs],c='y')
-                plt.legend(['Right Heel','Left Heel','RHS','LHS'])
+                # plt.plot(data['R_HEELX'],data['R_HEELY'],'b',data['L_HEELX'],data['L_HEELY'],'g')
+                # plt.scatter(data['R_HEELX'][rhs],data['R_HEELY'][rhs],c='r')
+                # plt.scatter(data['L_HEELX'][lhs],data['L_HEELY'][lhs],c='y')
+                plt.plot(data['R_HEELY'],'b',data['L_HEELY'],'g')
+                plt.scatter(rhs,data['R_HEELY'][rhs],c='r')
+                plt.scatter(lhs,data['L_HEELY'][lhs],c='y')
+                plt.scatter(rto,data['R_HEELY'][rto],c='magenta')
+                plt.scatter(lto,data['L_HEELY'][lto],c='orange')
+                plt.legend(['Right Heel','Left Heel','RHS','LHS','RTO','LTO'])
                 plt.ylabel('Lab Y\n(Across)')
                 xminlim,xmaxlim = plt.xlim()
 
                 plt.subplot(3,1,1)
-                plt.plot(data['L_HEELX'],data['L_HEELZ'],'g')
-                plt.scatter(data['L_HEELX'][lhs],data['L_HEELZ'][lhs],c='y')
+                # plt.plot(data['L_HEELX'],data['L_HEELZ'],'g')
+                # plt.scatter(data['L_HEELX'][lhs],data['L_HEELZ'][lhs],c='y')
+                plt.plot(data['L_HEELZ'],'g')
+                # plt.scatter(lhs,data['L_HEELZ'][lhs],c='y')
+
+                plt.scatter(rhs,data['L_HEELZ'][rhs],c='r')
+                plt.scatter(lhs,data['L_HEELZ'][lhs],c='y')
+                plt.scatter(rto,data['L_HEELZ'][rto],c='magenta')
+                plt.scatter(lto,data['L_HEELZ'][lto],c='orange')
+
                 plt.ylabel('Lab Z\n(Vertical)')
                 plt.xlim([xminlim,xmaxlim])
 
                 plt.subplot(3,1,3)
-                plt.plot(data['R_HEELX'],data['R_HEELZ'],'b')
-                plt.scatter(data['R_HEELX'][rhs],data['R_HEELZ'][rhs],c='r')
+                # plt.plot(data['R_HEELX'],data['R_HEELZ'],'b')
+                # plt.scatter(data['R_HEELX'][rhs],data['R_HEELZ'][rhs],c='r')
+                plt.plot(data['R_HEELZ'],'b')
+                # plt.scatter(rhs,data['R_HEELZ'][rhs],c='r')
+
+                plt.scatter(rhs,data['R_HEELZ'][rhs],c='r')
+                plt.scatter(lhs,data['R_HEELZ'][lhs],c='y')
+                plt.scatter(rto,data['R_HEELZ'][rto],c='magenta')
+                plt.scatter(lto,data['R_HEELZ'][lto],c='orange')
+
                 plt.ylabel('Lab Z\n(Vertical)')
                 plt.xlabel('Lab X\n(Along)')
                 plt.xlim([xminlim,xmaxlim])
                 print(trial)
                 print(rhs)
                 print(lhs)
+                print(rto)
+                print(lto)
                 plt.suptitle(trial + '\n' + self.id+'\nV3D')
                 plt.show()
+            peakdict2.update({trial:[rhs,lhs,rto,lto]})
+        self.peakdict2 = peakdict2
     
 
     def calculate_step_height(self,plot:bool):
@@ -522,6 +552,256 @@ class SessionDataObject:
                 plt.show()
         self.markerless_step_height = np.array(step_height)/self.height
 
+    def calculate_pelvis_jerk_step(self,plot:bool):
+        self.markerless_output_data['Pelvis_Jerk'] = np.nan
+
+        walking_keys = getIndexNames('Walking',self.markerless_task_labels)
+        for i in range(len(walking_keys)):
+            rhs = self.peakdict2[walking_keys[i]][0]
+            lhs = self.peakdict2[walking_keys[i]][1]
+            data = getMarkerlessData(self.markerless_data,walking_keys[i],['PelvisPosX','PelvisPosY','PelvisPosZ'])
+
+            if lhs.min() < rhs.min():
+                side_heel = lhs
+                anti_heel = rhs
+            else:
+                side_heel = rhs
+                anti_heel = lhs
+            
+            jerks = []
+            for _ in range(side_heel.size):
+                if side_heel.size == 0 or anti_heel.size==0: 
+                    break
+                if anti_heel[0] < side_heel[0]:
+                    print("Possible Error")
+
+                minind = side_heel[0]
+                maxind = anti_heel[0]
+                if minind < data.index[0]:
+                    continue
+                
+                nj, plotstuff = normJerk(data.loc[minind:maxind,'PelvisPosX'],data.loc[minind:maxind,'PelvisPosY'],data.loc[minind:maxind,'PelvisPosZ'],self.markerless_fs)
+
+                if plot:
+                    t = np.linspace(0,1,num=maxind-minind+1)
+                    plt.subplot(4,3,1)
+                    plt.plot(t,data.loc[minind:maxind,'PelvisPosX'].values)
+                    plt.subplot(4,3,2)
+                    plt.plot(t,data.loc[minind:maxind,'PelvisPosY'].values)
+                    plt.subplot(4,3,3)
+                    plt.plot(t,data.loc[minind:maxind,'PelvisPosZ'].values)
+                    plt.subplot(4,3,4)
+                    plt.plot(t,plotstuff[0])
+                    plt.subplot(4,3,5)
+                    plt.plot(t,plotstuff[3])
+                    plt.subplot(4,3,6)
+                    plt.plot(t,plotstuff[6])
+
+                    plt.subplot(4,3,7)
+                    plt.plot(t,plotstuff[1])
+                    plt.subplot(4,3,8)
+                    plt.plot(t,plotstuff[4])
+                    plt.subplot(4,3,9)
+                    plt.plot(t,plotstuff[7])
+
+                    plt.subplot(4,3,10)
+                    plt.plot(t,plotstuff[2])
+                    plt.subplot(4,3,11)
+                    plt.plot(t,plotstuff[5])
+                    plt.subplot(4,3,12)
+                    plt.plot(t,plotstuff[8])
+                    plt.suptitle("Pelvis Kinematics over Step\n"+self.id)
+                jerks.append(nj)
+                side_heel = np.delete(side_heel,0)
+                tmp = anti_heel
+                anti_heel = side_heel
+                side_heel = tmp
+        if plot:
+            plt.subplot(4,3,1)
+            plt.ylabel('Position')
+            plt.subplot(4,3,4)
+            plt.ylabel('Veloctiy')
+            plt.subplot(4,3,7)
+            plt.ylabel('Acceleration')
+            plt.subplot(4,3,10)
+            plt.xlabel('Time (fraction)\nX')
+            plt.ylabel('Jerk')
+            plt.subplot(4,3,11)
+            plt.xlabel('Time (fraction)\nY')
+            plt.subplot(4,3,12)
+            plt.xlabel('Time (fraction)\nZ')
+            plt.show()
+            plt.hist(jerks)
+            plt.show()
+        self.pelvis_jerks = jerks
+
+    def calculate_thorax_jerk_step(self,plot:bool):
+        self.markerless_output_data['Thorax_Jerk'] = np.nan
+        walking_keys = getIndexNames('Walking',self.markerless_task_labels)
+        for i in range(len(walking_keys)):
+            rhs = self.peakdict2[walking_keys[i]][0]
+            lhs = self.peakdict2[walking_keys[i]][1]
+            data = getMarkerlessData(self.markerless_data,walking_keys[i],['Distal ThoraxX','Distal ThoraxY','Distal ThoraxZ'])
+
+            if lhs.min() < rhs.min():
+                side_heel = lhs
+                anti_heel = rhs
+            else:
+                side_heel = rhs
+                anti_heel = lhs
+            
+            jerks = []
+            self.thorax_z_velocity_profiles=[]
+            for _ in range(side_heel.size):
+                if side_heel.size == 0 or anti_heel.size==0: 
+                    break
+                if anti_heel[0] < side_heel[0]:
+                    print("Possible Error")
+
+                minind = side_heel[0]
+                maxind = anti_heel[0]
+                if minind < data.index[0]:
+                    continue
+
+                nj, plotstuff = normJerk(data.loc[minind:maxind,'Distal ThoraxX'],data.loc[minind:maxind,'Distal ThoraxY'],data.loc[minind:maxind,'Distal ThoraxZ'],self.markerless_fs)
+
+                if plot:
+                    t = np.linspace(0,1,num=maxind-minind+1)
+                    plt.subplot(4,3,1)
+                    plt.plot(t,data.loc[minind:maxind,'Distal ThoraxX'].values)
+                    plt.subplot(4,3,2)
+                    plt.plot(t,data.loc[minind:maxind,'Distal ThoraxY'].values)
+                    plt.subplot(4,3,3)
+                    plt.plot(t,data.loc[minind:maxind,'Distal ThoraxZ'].values)
+                    plt.subplot(4,3,4)
+                    plt.plot(t,plotstuff[0])
+                    plt.subplot(4,3,5)
+                    plt.plot(t,plotstuff[3])
+                    plt.subplot(4,3,6)
+                    plt.plot(t,plotstuff[6])
+                    self.thorax_z_velocity_profiles.append(plotstuff[6])
+
+                    plt.subplot(4,3,7)
+                    plt.plot(t,plotstuff[1])
+                    plt.subplot(4,3,8)
+                    plt.plot(t,plotstuff[4])
+                    plt.subplot(4,3,9)
+                    plt.plot(t,plotstuff[7])
+
+                    plt.subplot(4,3,10)
+                    plt.plot(t,plotstuff[2])
+                    plt.subplot(4,3,11)
+                    plt.plot(t,plotstuff[5])
+                    plt.subplot(4,3,12)
+                    plt.plot(t,plotstuff[8])
+                    plt.suptitle("Thorax Kinematics over Step\n"+self.id)
+                jerks.append(nj)
+                side_heel = np.delete(side_heel,0)
+                tmp = anti_heel
+                anti_heel = side_heel
+                side_heel = tmp
+        if plot:
+            plt.subplot(4,3,1)
+            plt.ylabel('Position')
+            plt.subplot(4,3,4)
+            plt.ylabel('Veloctiy')
+            plt.subplot(4,3,7)
+            plt.ylabel('Acceleration')
+            plt.subplot(4,3,10)
+            plt.xlabel('Time (fraction)\nX')
+            plt.ylabel('Jerk')
+            plt.subplot(4,3,11)
+            plt.xlabel('Time (fraction)\nY')
+            plt.subplot(4,3,12)
+            plt.xlabel('Time (fraction)\nZ')
+            plt.show()
+            plt.hist(jerks)
+            plt.show()
+        self.thorax_jerks = jerks
+
+
+    # def calculate_thorax_jerk_step_old(self,plot:bool):
+    #     self.markerless_output_data['Thorax_Jerk'] = np.nan
+
+    #     walking_keys = getIndexNames('Walking',self.markerless_task_labels)
+    #     for i in range(len(walking_keys)):
+    #         rhs = self.peakdict2[walking_keys[i]][0]
+    #         lhs = self.peakdict2[walking_keys[i]][1]
+    #         rto = self.peakdict2[walking_keys[i]][2]
+    #         lto = self.peakdict2[walking_keys[i]][3]
+    #         data = getMarkerlessData(self.markerless_data,walking_keys[i],['Distal ThoraxX','Distal ThoraxY','Distal ThoraxZ'])
+    #         if lhs[0]<lto[0]:
+    #             lhs=np.delete(lhs,0)
+    #         if rhs[0]<rto[0]:
+    #             rhs=np.delete(rhs,0)
+    #         jerks = []
+    #         #this will break if the first thing is not a toe off...
+    #         for _ in range(rto.size+lto.size):
+    #             if rto.size ==0 or lto.size ==0 or rhs.size==0 or lhs.size==0:
+    #                 break
+    #             r_min = np.min(rto)
+    #             l_min = np.min(lto)
+    #             if r_min < l_min:
+    #                 # #this is from TO to HS
+    #                 # min=r_min
+    #                 # max=np.min(rhs)
+    #                 # rto = np.delete(rto,0)
+    #                 # rhs = np.delete(rhs,0)
+
+    #                 #this is from TO to TO
+    #                 min=r_min
+    #                 max=l_min
+    #                 rto = np.delete(rto,0)
+    #             else:
+    #                 # # this is from TO to HS
+    #                 # min=l_min
+    #                 # max=np.min(lhs)
+    #                 # lto = np.delete(lto,0)
+    #                 # lhs = np.delete(lhs,0)
+
+    #                 # this is from TO to TO
+    #                 min=l_min
+    #                 max=r_min
+    #                 lto = np.delete(lto,0)
+
+    #             nj, plotstuff = normJerk(data.loc[min:max,'Distal ThoraxX'],data.loc[min:max,'Distal ThoraxY'],data.loc[min:max,'Distal ThoraxZ'],self.markerless_fs)
+
+    #             if plot:
+    #                 plt.subplot(4,3,1)
+    #                 plt.plot(data['thoraxPosX'][min:max].values)
+    #                 plt.subplot(4,3,2)
+    #                 plt.plot(data['thoraxPosY'][min:max].values)
+    #                 plt.subplot(4,3,3)
+    #                 plt.plot(data['thoraxPosZ'][min:max].values)
+    #                 plt.subplot(4,3,4)
+    #                 plt.plot(plotstuff[0])
+    #                 plt.subplot(4,3,5)
+    #                 plt.plot(plotstuff[3])
+    #                 plt.subplot(4,3,6)
+    #                 plt.plot(plotstuff[6])
+
+    #                 plt.subplot(4,3,7)
+    #                 plt.plot(plotstuff[1])
+    #                 plt.subplot(4,3,8)
+    #                 plt.plot(plotstuff[4])
+    #                 plt.subplot(4,3,9)
+    #                 plt.plot(plotstuff[7])
+
+    #                 plt.subplot(4,3,10)
+    #                 plt.plot(plotstuff[2])
+    #                 plt.subplot(4,3,11)
+    #                 plt.plot(plotstuff[5])
+    #                 plt.subplot(4,3,12)
+    #                 plt.plot(plotstuff[8])
+    #                 plt.suptitle("thorax Step\n"+self.id)
+    #             jerks.append(nj) 
+    #     if plot:        
+    #         plt.show()
+    #         plt.hist(jerks)
+    #         plt.show()
+    #     self.thorax_jerks = jerks
+
+
     def calculate_pelvis_pos(self,plot:bool):
         self.markerless_output_data['Pelvis_Jerk'] = np.nan
         self.markerless_output_data['Pelvis_Accel'] = np.nan
@@ -529,7 +809,7 @@ class SessionDataObject:
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         for i in range(len(walking_keys)):
             data = getMarkerlessData(self.markerless_data,walking_keys[i],['PelvisPosX','PelvisPosY','PelvisPosZ'])
-            nj, plotstuff = pathJerkPelvis(data['PelvisPosX'],data['PelvisPosY'],data['PelvisPosZ'],self.markerless_fs)
+            nj, plotstuff = normJerk(data['PelvisPosX'],data['PelvisPosY'],data['PelvisPosZ'],self.markerless_fs)
             xvelocity=plotstuff[0]
             xaccel=plotstuff[1]
             xjerk=plotstuff[2]
@@ -544,15 +824,15 @@ class SessionDataObject:
                 plt.subplot(4,3,1)
                 plt.title('X - Along Lab')
                 plt.ylabel('Position (m)')
-                plt.plot(t,xdata)
+                plt.plot(t,data['PelvisPosX'])
 
                 plt.subplot(4,3,2)
                 plt.title('Y - Across Lab')
-                plt.plot(t,ydata)
+                plt.plot(t,data['PelvisPosY'])
 
                 plt.subplot(4,3,3)
                 plt.title('Z - Vertical Lab')
-                plt.plot(t,zdata)
+                plt.plot(t,data['PelvisPosZ'])
 
                 plt.subplot(4,3,4)
                 plt.ylabel('Velocity (m/s)')
@@ -586,35 +866,6 @@ class SessionDataObject:
                 plt.plot(t,zjerk)
 
                 plt.suptitle('Pelvis Measurements vs Time')
-            
-            #truncate if there is artifact
-            # threshold = np.mean(xvelocity) + 3 * np.std(xvelocity)
-            threshold = 5
-            while np.any(np.abs(xvelocity)>threshold):
-                #this is sometimes due to the disappearing and reappearing of the reconstruction in theia...so could look at how
-                # the nan data is removed...but this works
-                print("\nTruncating due to artifact")
-                locs = np.where(np.abs(xvelocity)>threshold)[-1]
-                dist = 30
-                #z
-                zdata = zdata[locs[-1]+dist:]
-                zvelocity = zvelocity[locs[-1]+dist:]
-                zaccel = zaccel[locs[-1]+dist:]
-                zjerk = zjerk[locs[-1]+dist:]
-                #y
-                ydata = ydata[locs[-1]+dist:]
-                yvelocity = yvelocity[locs[-1]+dist:]
-                yaccel = yaccel[locs[-1]+dist:]
-                yjerk = yjerk[locs[-1]+dist:]
-                #x
-                xdata = xdata[locs[-1]+dist:]
-                xvelocity = xvelocity[locs[-1]+dist:]
-                xaccel = xaccel[locs[-1]+dist:]
-                xjerk = xjerk[locs[-1]+dist:]
-                if plot: 
-                    for jd in range(1,13):
-                        plt.subplot(4,3,jd)
-                        plt.axvline(t[locs[-1]+dist],color='r')
 
             # https://stackoverflow.com/questions/5613244/root-mean-square-in-numpy-and-complications-of-matrix-and-arrays-of-numpy
             accel_rms = np.sqrt(xaccel.dot(xaccel)/xaccel.size) + np.sqrt(yaccel.dot(yaccel)/yaccel.size) + np.sqrt(zaccel.dot(zaccel)/zaccel.size)
@@ -723,3 +974,348 @@ class SessionDataObject:
             self.markerless_output_data.loc[walking_keys[i],'Thorax_Jerk'] = normalized_jerk_rms
             self.markerless_output_data.loc[walking_keys[i],'Thorax_Accel'] = normalized_accel_rms
 
+    def caculate_support(self,plot:bool):
+        walking_keys = getIndexNames('Walking',self.markerless_task_labels)
+        double_stances = []
+        gait_cycle_duration = []
+        for trial in walking_keys:
+            rhs = self.peakdict2[trial][0]
+            lhs = self.peakdict2[trial][1]
+            rto = self.peakdict2[trial][2]
+            lto = self.peakdict2[trial][3]
+            data = getMarkerlessData(self.markerless_data,trial,['R_HEELZ','L_HEELZ'])
+
+            if lhs.min() < rhs.min():
+                side_heel = lhs
+                anti_toe = rto
+                anti_heel = rhs
+                side_toe = lto
+            else:
+                side_heel = rhs
+                anti_toe = lto
+                anti_heel = lhs
+                side_toe = rto
+            
+            if anti_toe[0] < side_heel[0]:
+                anti_toe=np.delete(anti_toe,0)
+            if side_toe[0] < side_heel[0]:
+                side_toe = np.delete(side_toe,0)
+            if plot:
+                t=np.linspace(0,data['R_HEELZ'].values.size/self.markerless_fs,data['R_HEELZ'].size)
+                offset = data['R_HEELZ'].index[0]
+                plt.plot(t,data['R_HEELZ'])
+                plt.plot(t,data['L_HEELZ'])
+            for _ in range(side_heel.size):
+
+                if side_heel.size == 1 or anti_toe.size == 0 or anti_heel.size==0 or side_toe.size==0:
+                    break
+               
+                cycle_time = side_heel[1] - side_heel[0]
+                if anti_toe[0] > side_heel[1] or anti_heel[0] > side_heel[1] or side_toe[0] > side_heel[1]:
+                    print("Possible Error")
+                if plot:   
+                    plt.axvspan(t[side_heel[0]-offset],t[anti_toe[0]-offset],color='green',alpha=0.2)
+                    plt.axvspan(t[anti_toe[0]-offset],t[anti_heel[0]-offset],color='magenta',alpha=0.2)
+                    plt.axvspan(t[anti_heel[0]-offset],t[side_toe[0]-offset],color='green',alpha=0.2)
+                    plt.axvspan(t[side_toe[0]-offset],t[side_heel[1]-offset],color='magenta',alpha=0.2)
+                    plt.axvline(t[side_heel[0]-offset],c='black',linestyle='--')
+                    plt.axvline(t[anti_toe[0]-offset],c='black',linestyle='--')
+                    plt.axvline(t[anti_heel[0]-offset],c='black',linestyle='--')
+                    plt.axvline(t[side_toe[0]-offset],c='black',linestyle='--')
+                    plt.axvline(t[side_heel[1]-offset],c='black',linestyle='--')
+
+                double_stance = (anti_toe[0]-side_heel[0])/cycle_time + (side_toe[0]-anti_heel[0])/cycle_time
+                single_stance = (anti_heel[0]-anti_toe[0])/cycle_time + (side_heel[1]-side_toe[0])/cycle_time
+                if plot:
+                    print("Double stance: %.2f"%double_stance)
+                    print("Single stance: %.2f"%single_stance)
+                side_heel = np.delete(side_heel,0)
+                side_toe = np.delete(side_toe,0)
+                anti_heel = np.delete(anti_heel,0)
+                anti_toe = np.delete(anti_toe,0)
+                double_stances.append(double_stance)
+                gait_cycle_duration.append(cycle_time/self.markerless_fs)
+
+            if plot:
+                plt.title(self.id+'\n'+trial)
+                plt.ylabel('Z Height\n(m)')
+                plt.xlabel('Time (s)')
+                plt.legend(['R HEEL','L HEEL','Double Stance','Single Stance'])
+                plt.show()
+        self.double_stances=double_stances
+        self.gait_cycle_duration = gait_cycle_duration
+
+    def walking_angle(self,plot):
+        self.markerless_output_data['Walking_Angle_Deviation'] = np.nan
+        walking_keys = getIndexNames('Walking',self.markerless_task_labels)
+        for trial in walking_keys:
+            data = getMarkerlessData(self.markerless_data,trial,['PelvisPosX','PelvisPosY'])
+            start_position = (data.iloc[0,0],data.iloc[0,1])   #XY coords
+            end_position = (data.iloc[-1,0],data.iloc[-1,1])
+            ang = np.degrees(np.arctan(np.abs(start_position[1]-end_position[1])/np.abs(start_position[0]-end_position[0])))
+            self.markerless_output_data.loc[trial,'Walking_Angle_Deviation'] = ang
+            if plot:
+                plt.plot(data['PelvisPosX'],data['PelvisPosY'],alpha=0.5)
+                plt.plot([start_position[0],end_position[0]],[start_position[1],end_position[1]],linestyle='--')
+                print("Angle: %f"%ang)
+        if plot:
+            plt.title('Overhead view of walking path\n'+self.id)
+            plt.ylabel('Y lab (m)')
+            plt.xlabel('X lab (m)')
+            plt.ylim([-0.5,0.5])
+            plt.show()
+
+    def calculate_pelvis_jerk_tandem(self,plot:bool):
+        tandem_keys = getIndexNames('Tandem',self.markerless_task_labels)
+        for i in range(len(tandem_keys)):
+            rhs = np.array(self.markerless_events[tandem_keys[i]]['RHS'])
+            lhs = np.array(self.markerless_events[tandem_keys[i]]['LHS'])
+            rhs = np.round(rhs*self.markerless_fs).astype(int)
+            lhs = np.round(lhs*self.markerless_fs).astype(int)
+            data = getMarkerlessData(self.markerless_data,tandem_keys[i],['PelvisPosX','PelvisPosY','PelvisPosZ'])
+            max_ind = np.max(data.index)
+            rhs = rhs[np.where(rhs<=max_ind)]
+            lhs = lhs[np.where(lhs<=max_ind)]
+
+            if lhs.min() < rhs.min():
+                side_heel = lhs
+                anti_heel = rhs
+            else:
+                side_heel = rhs
+                anti_heel = lhs
+            
+            jerks = []
+            for _ in range(side_heel.size):
+                if side_heel.size == 0 or anti_heel.size==0: 
+                    break
+                if anti_heel[0] < side_heel[0]:
+                    print("Possible Error")
+
+                minind = side_heel[0]
+                maxind = anti_heel[0]
+                if minind < data.index[0]:
+                    continue
+                
+                nj, plotstuff = normJerk(data.loc[minind:maxind,'PelvisPosX'],data.loc[minind:maxind,'PelvisPosY'],data.loc[minind:maxind,'PelvisPosZ'],self.markerless_fs)
+
+                if plot:
+                    t = np.linspace(0,1,num=maxind-minind+1)
+                    plt.subplot(4,3,1)
+                    plt.plot(t,data.loc[minind:maxind,'PelvisPosX'].values)
+                    plt.subplot(4,3,2)
+                    plt.plot(t,data.loc[minind:maxind,'PelvisPosY'].values)
+                    plt.subplot(4,3,3)
+                    plt.plot(t,data.loc[minind:maxind,'PelvisPosZ'].values)
+                    plt.subplot(4,3,4)
+                    plt.plot(t,plotstuff[0])
+                    plt.subplot(4,3,5)
+                    plt.plot(t,plotstuff[3])
+                    plt.subplot(4,3,6)
+                    plt.plot(t,plotstuff[6])
+
+                    plt.subplot(4,3,7)
+                    plt.plot(t,plotstuff[1])
+                    plt.subplot(4,3,8)
+                    plt.plot(t,plotstuff[4])
+                    plt.subplot(4,3,9)
+                    plt.plot(t,plotstuff[7])
+
+                    plt.subplot(4,3,10)
+                    plt.plot(t,plotstuff[2])
+                    plt.subplot(4,3,11)
+                    plt.plot(t,plotstuff[5])
+                    plt.subplot(4,3,12)
+                    plt.plot(t,plotstuff[8])
+                    plt.suptitle("Pelvis Kinematics over Step\n"+self.id)
+                jerks.append(nj)
+                side_heel = np.delete(side_heel,0)
+                tmp = anti_heel
+                anti_heel = side_heel
+                side_heel = tmp
+        if plot:
+            plt.subplot(4,3,1)
+            plt.ylabel('Position')
+            plt.subplot(4,3,4)
+            plt.ylabel('Veloctiy')
+            plt.subplot(4,3,7)
+            plt.ylabel('Acceleration')
+            plt.subplot(4,3,10)
+            plt.xlabel('Time (fraction)\nX')
+            plt.ylabel('Jerk')
+            plt.subplot(4,3,11)
+            plt.xlabel('Time (fraction)\nY')
+            plt.subplot(4,3,12)
+            plt.xlabel('Time (fraction)\nZ')
+            plt.show()
+            plt.hist(jerks)
+            plt.show()
+        self.tandem_pelvis_jerks = jerks
+
+    def calculate_thorax_jerk_tandem(self,plot:bool):
+        tandem_keys = getIndexNames('Tandem',self.markerless_task_labels)
+        for i in range(len(tandem_keys)):
+            rhs = np.array(self.markerless_events[tandem_keys[i]]['RHS'])
+            lhs = np.array(self.markerless_events[tandem_keys[i]]['LHS'])
+            rhs = np.round(rhs*self.markerless_fs).astype(int)
+            lhs = np.round(lhs*self.markerless_fs).astype(int)
+            data = getMarkerlessData(self.markerless_data,tandem_keys[i],['Distal ThoraxX','Distal ThoraxY','Distal ThoraxZ'])
+            max_ind = np.max(data.index)
+            rhs = rhs[np.where(rhs<=max_ind)]
+            lhs = lhs[np.where(lhs<=max_ind)]
+
+            if lhs.min() < rhs.min():
+                side_heel = lhs
+                anti_heel = rhs
+            else:
+                side_heel = rhs
+                anti_heel = lhs
+            
+            jerks = []
+            for _ in range(side_heel.size):
+                if side_heel.size == 0 or anti_heel.size==0: 
+                    break
+                if anti_heel[0] < side_heel[0]:
+                    print("Possible Error")
+
+                minind = side_heel[0]
+                maxind = anti_heel[0]
+                if minind < data.index[0]:
+                    continue
+                
+                nj, plotstuff = normJerk(data.loc[minind:maxind,'Distal ThoraxX'],data.loc[minind:maxind,'Distal ThoraxY'],data.loc[minind:maxind,'Distal ThoraxZ'],self.markerless_fs)
+
+                if plot:
+                    t = np.linspace(0,1,num=maxind-minind+1)
+                    plt.subplot(4,3,1)
+                    plt.plot(t,data.loc[minind:maxind,'Distal ThoraxX'].values)
+                    plt.subplot(4,3,2)
+                    plt.plot(t,data.loc[minind:maxind,'Distal ThoraxY'].values)
+                    plt.subplot(4,3,3)
+                    plt.plot(t,data.loc[minind:maxind,'Distal ThoraxZ'].values)
+                    plt.subplot(4,3,4)
+                    plt.plot(t,plotstuff[0])
+                    plt.subplot(4,3,5)
+                    plt.plot(t,plotstuff[3])
+                    plt.subplot(4,3,6)
+                    plt.plot(t,plotstuff[6])
+
+                    plt.subplot(4,3,7)
+                    plt.plot(t,plotstuff[1])
+                    plt.subplot(4,3,8)
+                    plt.plot(t,plotstuff[4])
+                    plt.subplot(4,3,9)
+                    plt.plot(t,plotstuff[7])
+
+                    plt.subplot(4,3,10)
+                    plt.plot(t,plotstuff[2])
+                    plt.subplot(4,3,11)
+                    plt.plot(t,plotstuff[5])
+                    plt.subplot(4,3,12)
+                    plt.plot(t,plotstuff[8])
+                    plt.suptitle("Thorax Kinematics over Tandem Step\n"+self.id)
+                jerks.append(nj)
+                side_heel = np.delete(side_heel,0)
+                tmp = anti_heel
+                anti_heel = side_heel
+                side_heel = tmp
+        if plot:
+            plt.subplot(4,3,1)
+            plt.ylabel('Position')
+            plt.subplot(4,3,4)
+            plt.ylabel('Veloctiy')
+            plt.subplot(4,3,7)
+            plt.ylabel('Acceleration')
+            plt.subplot(4,3,10)
+            plt.xlabel('Time (fraction)\nX')
+            plt.ylabel('Jerk')
+            plt.subplot(4,3,11)
+            plt.xlabel('Time (fraction)\nY')
+            plt.subplot(4,3,12)
+            plt.xlabel('Time (fraction)\nZ')
+            plt.show()
+            plt.hist(jerks)
+            plt.show()
+        self.tandem_thorax_jerks = jerks
+
+    def caculate_support_tandem(self,plot:bool):
+        tandem_keys = getIndexNames('Tandem',self.markerless_task_labels)
+        double_stances = []
+        gait_cycle_duration = []
+        for trial in tandem_keys:
+            data = getMarkerlessData(self.markerless_data,trial,['Distal ThoraxX','Distal ThoraxY','Distal ThoraxZ'])
+            rhs = np.array(self.markerless_events[trial]['RHS'])
+            lhs = np.array(self.markerless_events[trial]['LHS'])
+            rto = np.array(self.markerless_events[trial]['RTO'])
+            lto = np.array(self.markerless_events[trial]['LTO'])
+            rhs = np.round(rhs*self.markerless_fs).astype(int)
+            lhs = np.round(lhs*self.markerless_fs).astype(int)
+            rto = np.round(rto*self.markerless_fs).astype(int)
+            lto = np.round(lto*self.markerless_fs).astype(int)
+            max_ind = np.max(data.index)
+            rhs = rhs[np.where(rhs<=max_ind)]
+            lhs = lhs[np.where(lhs<=max_ind)]
+            rto = rto[np.where(rto<=max_ind)]
+            lto = lto[np.where(lto<=max_ind)]
+
+
+            data = getMarkerlessData(self.markerless_data,trial,['R_HEELZ','L_HEELZ'])
+
+            if lhs.min() < rhs.min():
+                side_heel = lhs
+                anti_toe = rto
+                anti_heel = rhs
+                side_toe = lto
+            else:
+                side_heel = rhs
+                anti_toe = lto
+                anti_heel = lhs
+                side_toe = rto
+            
+            if anti_toe[0] < side_heel[0]:
+                anti_toe=np.delete(anti_toe,0)
+            if side_toe[0] < side_heel[0]:
+                side_toe = np.delete(side_toe,0)
+            if plot:
+                t=np.linspace(0,data['R_HEELZ'].values.size/self.markerless_fs,data['R_HEELZ'].size)
+                offset = data['R_HEELZ'].index[0]
+                plt.plot(t,data['R_HEELZ'])
+                plt.plot(t,data['L_HEELZ'])
+            for _ in range(side_heel.size):
+
+                if side_heel.size == 1 or anti_toe.size == 0 or anti_heel.size==0 or side_toe.size==0:
+                    break
+               
+                cycle_time = side_heel[1] - side_heel[0]
+                if anti_toe[0] > side_heel[1] or anti_heel[0] > side_heel[1] or side_toe[0] > side_heel[1]:
+                    print("Possible Error")
+                if plot:   
+                    plt.axvspan(t[side_heel[0]-offset],t[anti_toe[0]-offset],color='green',alpha=0.2)
+                    plt.axvspan(t[anti_toe[0]-offset],t[anti_heel[0]-offset],color='magenta',alpha=0.2)
+                    plt.axvspan(t[anti_heel[0]-offset],t[side_toe[0]-offset],color='green',alpha=0.2)
+                    plt.axvspan(t[side_toe[0]-offset],t[side_heel[1]-offset],color='magenta',alpha=0.2)
+                    plt.axvline(t[side_heel[0]-offset],c='black',linestyle='--')
+                    plt.axvline(t[anti_toe[0]-offset],c='black',linestyle='--')
+                    plt.axvline(t[anti_heel[0]-offset],c='black',linestyle='--')
+                    plt.axvline(t[side_toe[0]-offset],c='black',linestyle='--')
+                    plt.axvline(t[side_heel[1]-offset],c='black',linestyle='--')
+
+                double_stance = (anti_toe[0]-side_heel[0])/cycle_time + (side_toe[0]-anti_heel[0])/cycle_time
+                single_stance = (anti_heel[0]-anti_toe[0])/cycle_time + (side_heel[1]-side_toe[0])/cycle_time
+                if plot:
+                    print("Double stance: %.2f"%double_stance)
+                    print("Single stance: %.2f"%single_stance)
+                side_heel = np.delete(side_heel,0)
+                side_toe = np.delete(side_toe,0)
+                anti_heel = np.delete(anti_heel,0)
+                anti_toe = np.delete(anti_toe,0)
+                double_stances.append(double_stance)
+                gait_cycle_duration.append(cycle_time/self.markerless_fs)
+
+            if plot:
+                plt.title('Tandem '+self.id+'\n'+trial)
+                plt.ylabel('Z Height\n(m)')
+                plt.xlabel('Time (s)')
+                plt.legend(['R HEEL','L HEEL','Double Stance','Single Stance'])
+                plt.show()
+        self.tandem_double_stances=double_stances
+        self.tandem_gait_cycle_duration = gait_cycle_duration

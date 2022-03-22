@@ -1,6 +1,6 @@
 ## To Do:
 ### Analysis
-- [ ] Normalize jerk to dimensionless term.
+- [*] Normalize jerk to dimensionless term.
 - [ ] Look at tandem analysis.
 - [ ] Analyze Shank Movements
 ### Experiments

@@ -9,41 +9,19 @@ miguel = SessionDataObject(path_to_miguel,False,1.75,walking=True,ng=False)
 path_to_subject =  "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\003\\2022-02-11"
 subject = SessionDataObject(path_to_subject,False,1.7,walking=True,ng=False)
 
-# %% pelvis accel
-control_accel=miguel.markerless_output_data['Pelvis_Accel'].values
-control_accel=control_accel[~np.isnan(control_accel)]
-subject_accel=subject.markerless_output_data['Pelvis_Accel'].values
-subject_accel=subject_accel[~np.isnan(subject_accel)]
-data=[control_accel,subject_accel]
-bplot_accel = plt.boxplot(data,labels=["Control RMS","Subject RMS"],patch_artist=True)
-plt.title("Pelvis Acceleration Comparison")
-plt.ylabel("Normalized Acceleration RMS\n($m^3/s$)")
-plt.show()
 # %% pelvis jerk
-control_jerk=miguel.markerless_output_data['Pelvis_Jerk'].values
-control_jerk=control_jerk[~np.isnan(control_jerk)]
-subject_jerk=subject.markerless_output_data['Pelvis_Jerk'].values
-subject_jerk=subject_jerk[~np.isnan(subject_jerk)]
+control_jerk=miguel.pelvis_jerks
+subject_jerk=subject.pelvis_jerks
 data=[control_jerk,subject_jerk]
 bplot_jerk = plt.boxplot(data,labels=["Control RMS","Subject RMS"],patch_artist=True)
 plt.title("Pelvis Jerk Comparison")
-plt.ylabel("Normalized Jerk RMS\n($m^4/s$)")
+plt.ylabel("Normalized Jerk")
+a=ranksums(control_jerk,subject_jerk)
+print("Pelvis Jerk: %.5f"%a[1])
 plt.show()
-# %% pelvis accel
-control_accel=miguel.markerless_output_data['Thorax_Accel'].values
-control_accel=control_accel[~np.isnan(control_accel)]
-subject_accel=subject.markerless_output_data['Thorax_Accel'].values
-subject_accel=subject_accel[~np.isnan(subject_accel)]
-data=[control_accel,subject_accel]
-bplot_accel = plt.boxplot(data,labels=["Control RMS","Subject RMS"],patch_artist=True)
-plt.title("Thorax Acceleration Comparison")
-plt.ylabel("Normalized Acceleration RMS\n($m^3/s$)")
-plt.show()
-# %% pelvis jerk
-control_jerk=miguel.markerless_output_data['Thorax_Jerk'].values
-control_jerk=control_jerk[~np.isnan(control_jerk)]
-subject_jerk=subject.markerless_output_data['Thorax_Jerk'].values
-subject_jerk=subject_jerk[~np.isnan(subject_jerk)]
+# %% thorax jerk
+control_jerk=miguel.thorax_jerks
+subject_jerk=subject.thorax_jerks
 data=[control_jerk,subject_jerk]
 bplot_jerk = plt.boxplot(data,labels=["Control RMS","Subject RMS"],patch_artist=True)
 plt.title("Thorax Jerk Comparison")
