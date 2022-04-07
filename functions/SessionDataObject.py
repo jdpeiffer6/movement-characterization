@@ -23,7 +23,6 @@ class SessionDataObject:
         self.marker_fs: int = 100
         self.marker_task_labels: pd.DataFrame
         self.height = height
-        self.test: dict[str:pd.DataFrame]
 
         self.markerless_output_data: pd.DataFrame
         self.marker_output_data: pd.DataFrame
@@ -94,19 +93,20 @@ class SessionDataObject:
 
 
     def analyze_walking(self,plot):
-        self.walking_angle(False)
-        self.calculate_step_width2(False)
+        self.walking_angle(True)
+        self.calculate_step_width(True)
+        self.calculate_step_height(True)
+        self.calculate_pelvis_jerk_step(True)
+        self.calculate_thorax_jerk_step(True)
+        self.calculate_support(True)
+        self.calculate_joint_angles_walking(True)
+    
+    def analyze_tandem(self,plot):
         self.calculate_pelvis_jerk_tandem(True)
         self.calculate_thorax_jerk_tandem(True)
-        self.caculate_support_tandem(True)
-        self.calculate_pelvis_jerk_step(False)
-        self.calculate_thorax_jerk_step(False)
-        # self.caculate_support(False)
-        # self.interpolate_walking(plot)
-        # self.calculate_joint_angles_walking(plot)
-        # self.calculate_step_height(plot)
-        # self.calculate_step_width(plot)
-        # self.calculate_thorax_pos(plot)
+        self.calculate_support_tandem(True)
+        
+
         
     def analyze_NG(self,plot):
         ng_layout_keys = getIndexNames('NGLayout',self.marker_task_labels)
@@ -324,133 +324,134 @@ class SessionDataObject:
             print("Means:\nRH:\t%.2f\nLH:\t%.2f\nRK:\t%.2f\nLK:\t%.2f\n"%(rh.mean(),lh.mean(),rk.mean(),lk.mean()))
 
 
-    def interpolate_walking(self,plot:bool):
-        walking_keys = getIndexNames('Walking',self.markerless_task_labels)
-        peakdict = {}
-        for i in range(len(walking_keys)):
-            data = getMarkerlessData(self.markerless_data,walking_keys[i],['R_HEELX','R_HEELZ','L_HEELX','L_HEELZ'])
-            #interpolate that sh(t)
-            # right leg
-            xmin = min(data['R_HEELX'])
-            xmax = max(data['R_HEELX'])
-            r_xnew = np.linspace(xmin,xmax,num = data['R_HEELX'].shape[0],endpoint=True)
-            x = data['R_HEELX'].values
-            z = data['R_HEELZ'].values
-            f_interp = interp1d(x,z)
-            r_znew = f_interp(r_xnew)
-            self.markerless_data[walking_keys[i]]['R_HEELZ_WRT_X'] = np.nan
-            self.markerless_data[walking_keys[i]]['R_HEELZ_WRT_X'][data.index] = r_znew
-            r_peaks_interp = signal.find_peaks(-1*r_znew,threshold = -0.05,distance=50)
-            r_peaks_real = mapPeaks(r_peaks_interp,r_xnew,data['R_HEELX'])
+    # def interpolate_walking(self,plot:bool):
+    #     walking_keys = getIndexNames('Walking',self.markerless_task_labels)
+    #     peakdict = {}
+    #     for i in range(len(walking_keys)):
+    #         data = getMarkerlessData(self.markerless_data,walking_keys[i],['R_HEELX','R_HEELZ','L_HEELX','L_HEELZ'])
+    #         #interpolate that sh(t)
+    #         # right leg
+    #         xmin = min(data['R_HEELX'])
+    #         xmax = max(data['R_HEELX'])
+    #         r_xnew = np.linspace(xmin,xmax,num = data['R_HEELX'].shape[0],endpoint=True)
+    #         x = data['R_HEELX'].values
+    #         z = data['R_HEELZ'].values
+    #         f_interp = interp1d(x,z)
+    #         r_znew = f_interp(r_xnew)
+    #         self.markerless_data[walking_keys[i]]['R_HEELZ_WRT_X'] = np.nan
+    #         self.markerless_data[walking_keys[i]]['R_HEELZ_WRT_X'][data.index] = r_znew
+    #         r_peaks_interp = signal.find_peaks(-1*r_znew,threshold = -0.05,distance=50)
+    #         r_peaks_real = mapPeaks(r_peaks_interp,r_xnew,data['R_HEELX'])
 
-            # left leg
-            xmin = min(data['L_HEELX'])
-            xmax = max(data['L_HEELX'])
-            l_xnew = np.linspace(xmin,xmax,num = data['L_HEELX'].shape[0],endpoint=True)
-            x = data['L_HEELX'].values
-            z = data['L_HEELZ'].values
-            f_interp = interp1d(x,z)
-            l_znew = f_interp(l_xnew)
-            self.markerless_data[walking_keys[i]]['L_HEELZ_WRT_X'] = np.nan
-            self.markerless_data[walking_keys[i]]['L_HEELZ_WRT_X'][data.index] = l_znew
-            l_peaks_interp = signal.find_peaks(-1*l_znew,threshold = -0.05,distance=50)
-            l_peaks_real = mapPeaks(l_peaks_interp,l_xnew,data['L_HEELX'])
+    #         # left leg
+    #         xmin = min(data['L_HEELX'])
+    #         xmax = max(data['L_HEELX'])
+    #         l_xnew = np.linspace(xmin,xmax,num = data['L_HEELX'].shape[0],endpoint=True)
+    #         x = data['L_HEELX'].values
+    #         z = data['L_HEELZ'].values
+    #         f_interp = interp1d(x,z)
+    #         l_znew = f_interp(l_xnew)
+    #         self.markerless_data[walking_keys[i]]['L_HEELZ_WRT_X'] = np.nan
+    #         self.markerless_data[walking_keys[i]]['L_HEELZ_WRT_X'][data.index] = l_znew
+    #         l_peaks_interp = signal.find_peaks(-1*l_znew,threshold = -0.05,distance=50)
+    #         l_peaks_real = mapPeaks(l_peaks_interp,l_xnew,data['L_HEELX'])
 
-            if plot:
-                t = np.linspace(0,x.shape[0]/100,num=x.shape[0])
-                plt.subplot(2,2,1)
-                plt.plot(t,data['L_HEELZ'],'b')
-                plt.xlabel("Time (s)")
-                plt.ylabel('Heel Height (m)')
-                plt.subplot(2,2,3)
-                plt.plot(l_xnew,l_znew,'y--')
-                plt.plot(data['L_HEELX'].values,data['L_HEELZ'].values,'g',alpha=0.5)
-                plt.scatter(l_xnew[l_peaks_interp[0]],l_znew[l_peaks_interp[0]],c='y')
-                plt.scatter(data['L_HEELX'].values[l_peaks_real],data['L_HEELZ'].values[l_peaks_real],c='g')
-                plt.xlabel('Distance (m)')
-                plt.ylabel('Heel Height (m)')
-                plt.subplot(2,2,2)
-                plt.plot(t,data['R_HEELZ'],'b')
-                plt.xlabel("Time (s)")
-                plt.subplot(2,2,4)
-                plt.plot(r_xnew,r_znew,'y--')
-                plt.plot(data['R_HEELX'].values,data['R_HEELZ'].values,'g',alpha=0.5)
-                plt.scatter(r_xnew[r_peaks_interp[0]],r_znew[r_peaks_interp[0]],c='y')
-                plt.scatter(data['R_HEELX'].values[r_peaks_real],data['R_HEELZ'].values[r_peaks_real],c='g')
-                plt.legend(['Interp','Real','Interp Strike','Real Strike'])
-                plt.xlabel('Distance (m)')
+    #         if plot:
+    #             t = np.linspace(0,x.shape[0]/100,num=x.shape[0])
+    #             plt.subplot(2,2,1)
+    #             plt.plot(t,data['L_HEELZ'],'b')
+    #             plt.xlabel("Time (s)")
+    #             plt.ylabel('Heel Height (m)')
+    #             plt.subplot(2,2,3)
+    #             plt.plot(l_xnew,l_znew,'y--')
+    #             plt.plot(data['L_HEELX'].values,data['L_HEELZ'].values,'g',alpha=0.5)
+    #             plt.scatter(l_xnew[l_peaks_interp[0]],l_znew[l_peaks_interp[0]],c='y')
+    #             plt.scatter(data['L_HEELX'].values[l_peaks_real],data['L_HEELZ'].values[l_peaks_real],c='g')
+    #             plt.xlabel('Distance (m)')
+    #             plt.ylabel('Heel Height (m)')
+    #             plt.subplot(2,2,2)
+    #             plt.plot(t,data['R_HEELZ'],'b')
+    #             plt.xlabel("Time (s)")
+    #             plt.subplot(2,2,4)
+    #             plt.plot(r_xnew,r_znew,'y--')
+    #             plt.plot(data['R_HEELX'].values,data['R_HEELZ'].values,'g',alpha=0.5)
+    #             plt.scatter(r_xnew[r_peaks_interp[0]],r_znew[r_peaks_interp[0]],c='y')
+    #             plt.scatter(data['R_HEELX'].values[r_peaks_real],data['R_HEELZ'].values[r_peaks_real],c='g')
+    #             plt.legend(['Interp','Real','Interp Strike','Real Strike'])
+    #             plt.xlabel('Distance (m)')
                 
-                plt.suptitle("Interpolated")
-                plt.show()
-            peakdict.update({walking_keys[i]:[r_peaks_real,l_peaks_real]})
-        self.peakdict = peakdict
-        return peakdict
+    #             plt.suptitle("Interpolated")
+    #             plt.show()
+    #         peakdict.update({walking_keys[i]:[r_peaks_real,l_peaks_real]})
+    #     self.peakdict = peakdict
+    #     return peakdict
             
 
-    def calculate_step_width(self,plot : bool):
-        peakdict = self.peakdict
-        walking_keys = getIndexNames('Walking',self.markerless_task_labels)
+    # def calculate_step_width(self,plot : bool):
+    #     peakdict = self.peakdict
+    #     walking_keys = getIndexNames('Walking',self.markerless_task_labels)
+    #     step_width = []
+    #     step_length = []
+    #     for i in range(len(walking_keys)):
+    #         # data = self.markerless_data[walking_keys[i]]
+    #         data = getMarkerlessData(self.markerless_data,walking_keys[i],['R_HEELX','R_HEELY','R_HEELZ','L_HEELX','L_HEELY','L_HEELZ'])
+    #         heel = data[['R_HEELX','R_HEELY','R_HEELZ','L_HEELX','L_HEELY','L_HEELZ']]
+    #         r_peaks = peakdict[walking_keys[i]][0]
+    #         l_peaks = peakdict[walking_keys[i]][1]
+    #         if plot:
+    #             plt.subplot(3,1,2)
+    #             plt.plot(data['R_HEELX'],data['R_HEELY'],'b',data['L_HEELX'],data['L_HEELY'],'g')
+    #             plt.scatter(data['R_HEELX'].values[r_peaks],data['R_HEELY'].values[r_peaks],c='r')
+    #             plt.scatter(data['L_HEELX'].values[l_peaks],data['L_HEELY'].values[l_peaks],c='y')
+    #             plt.legend(['Right Heel','Left Heel','RHS','LHS'])
+    #             plt.ylabel('Lab Y\n(Across)')
+    #             xlimmin,xlimmax = plt.xlim()
+
+    #             plt.subplot(3,1,1)
+    #             plt.plot(data['L_HEELX'],data['L_HEELZ'],'g')
+    #             plt.scatter(data['L_HEELX'].values[l_peaks],data['L_HEELZ'].values[l_peaks],c='y')
+    #             plt.xlim(xlimmin,xlimmax)
+    #             plt.ylabel('Lab Z\n(Vertical)')
+
+
+    #             plt.subplot(3,1,3)
+    #             plt.plot(data['R_HEELX'],data['R_HEELZ'],'b')
+    #             plt.scatter(data['R_HEELX'].values[r_peaks],data['R_HEELZ'].values[r_peaks],c='r')
+    #             plt.xlim(xlimmin,xlimmax)
+    #             plt.xlabel('Lab X (m)\n(Along)')
+    #             plt.ylabel('Lab Z\n(Vertical)')
+
+    #         for _ in range(r_peaks.size+l_peaks.size):
+    #             if r_peaks.size ==0 or l_peaks.size ==0:
+    #                 break
+    #             r_min = np.min(r_peaks)
+    #             l_min = np.min(l_peaks)
+    #             if plot:
+    #                 plt.subplot(3,1,2)
+    #                 plt.plot([heel['R_HEELX'].values[r_peaks[0]],heel['L_HEELX'].values[l_peaks[0]]], [heel['R_HEELY'].values[r_peaks[0]],heel['L_HEELY'].values[l_peaks[0]]], 'pink', linestyle="--")
+    #             step_length.append(np.abs(heel['R_HEELX'].values[r_peaks[0]]-heel['L_HEELX'].values[l_peaks[0]]))
+    #             step_width.append(np.abs(heel['R_HEELY'].values[r_peaks[0]]-heel['L_HEELY'].values[l_peaks[0]]))
+    #             if r_min < l_min:
+    #                 r_peaks = np.delete(r_peaks,0)
+    #             else:
+    #                 l_peaks = np.delete(l_peaks,0)
+    #         if plot:
+    #             print("\nStep Width: %.3f +/- (%.3f)"%(np.mean(step_width),np.std(step_width)))
+    #             print("Step length: %.3f +/- (%.3f)"%(np.mean(step_length),np.std(step_length)))
+    #             plt.suptitle(walking_keys[i]+'\n'+self.id)
+    #             plt.show()
+    #     for j in range(len(step_length)-1,0,-1):
+    #         if step_length[j] > 1000000:
+    #             step_length.pop(i)
+    #             print("Removed")
+    #     self.markerless_step_width = np.array(step_width)/self.height
+    #     self.markerless_step_length = np.array(step_length)/self.height
+
+    def calculate_step_width(self,plot: bool):
+        """Uses the RTO,LTO,etc from V3D"""
+        peakdict2 = {}
         step_width = []
         step_length = []
-        for i in range(len(walking_keys)):
-            # data = self.markerless_data[walking_keys[i]]
-            data = getMarkerlessData(self.markerless_data,walking_keys[i],['R_HEELX','R_HEELY','R_HEELZ','L_HEELX','L_HEELY','L_HEELZ'])
-            heel = data[['R_HEELX','R_HEELY','R_HEELZ','L_HEELX','L_HEELY','L_HEELZ']]
-            r_peaks = peakdict[walking_keys[i]][0]
-            l_peaks = peakdict[walking_keys[i]][1]
-            if plot:
-                plt.subplot(3,1,2)
-                plt.plot(data['R_HEELX'],data['R_HEELY'],'b',data['L_HEELX'],data['L_HEELY'],'g')
-                plt.scatter(data['R_HEELX'].values[r_peaks],data['R_HEELY'].values[r_peaks],c='r')
-                plt.scatter(data['L_HEELX'].values[l_peaks],data['L_HEELY'].values[l_peaks],c='y')
-                plt.legend(['Right Heel','Left Heel','RHS','LHS'])
-                plt.ylabel('Lab Y\n(Across)')
-                xlimmin,xlimmax = plt.xlim()
-
-                plt.subplot(3,1,1)
-                plt.plot(data['L_HEELX'],data['L_HEELZ'],'g')
-                plt.scatter(data['L_HEELX'].values[l_peaks],data['L_HEELZ'].values[l_peaks],c='y')
-                plt.xlim(xlimmin,xlimmax)
-                plt.ylabel('Lab Z\n(Vertical)')
-
-
-                plt.subplot(3,1,3)
-                plt.plot(data['R_HEELX'],data['R_HEELZ'],'b')
-                plt.scatter(data['R_HEELX'].values[r_peaks],data['R_HEELZ'].values[r_peaks],c='r')
-                plt.xlim(xlimmin,xlimmax)
-                plt.xlabel('Lab X (m)\n(Along)')
-                plt.ylabel('Lab Z\n(Vertical)')
-
-            for _ in range(r_peaks.size+l_peaks.size):
-                if r_peaks.size ==0 or l_peaks.size ==0:
-                    break
-                r_min = np.min(r_peaks)
-                l_min = np.min(l_peaks)
-                if plot:
-                    plt.subplot(3,1,2)
-                    plt.plot([heel['R_HEELX'].values[r_peaks[0]],heel['L_HEELX'].values[l_peaks[0]]], [heel['R_HEELY'].values[r_peaks[0]],heel['L_HEELY'].values[l_peaks[0]]], 'pink', linestyle="--")
-                step_length.append(np.abs(heel['R_HEELX'].values[r_peaks[0]]-heel['L_HEELX'].values[l_peaks[0]]))
-                step_width.append(np.abs(heel['R_HEELY'].values[r_peaks[0]]-heel['L_HEELY'].values[l_peaks[0]]))
-                if r_min < l_min:
-                    r_peaks = np.delete(r_peaks,0)
-                else:
-                    l_peaks = np.delete(l_peaks,0)
-            if plot:
-                print("\nStep Width: %.3f +/- (%.3f)"%(np.mean(step_width),np.std(step_width)))
-                print("Step length: %.3f +/- (%.3f)"%(np.mean(step_length),np.std(step_length)))
-                plt.suptitle(walking_keys[i]+'\n'+self.id)
-                plt.show()
-        for j in range(len(step_length)-1,0,-1):
-            if step_length[j] > 1000000:
-                step_length.pop(i)
-                print("Removed")
-        self.markerless_step_width = np.array(step_width)/self.height
-        self.markerless_step_length = np.array(step_length)/self.height
-
-    def calculate_step_width2(self,plot: bool):
-        """Uses the RTO,LTO,etc from V3D"""
-        # trial_names = list(self.markerless_events.keys())
-        peakdict2 = {}
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         for trial in walking_keys:
             data = self.markerless_data[trial]
@@ -470,22 +471,28 @@ class SessionDataObject:
 
             if plot:
                 plt.subplot(3,1,2)
+                plt.plot(data['R_HEELX'],data['R_HEELY'],'b',data['L_HEELX'],data['L_HEELY'],'g')
+                plt.scatter(data['R_HEELX'][rhs],data['R_HEELY'][rhs],c='r')
+                plt.scatter(data['L_HEELX'][lhs],data['L_HEELY'][lhs],c='y')
+                plt.scatter(data['R_HEELX'][rto],data['R_HEELY'][rto],c='magenta')
+                plt.scatter(data['L_HEELX'][lto],data['L_HEELY'][lto],c='orange')
+                
                 # plt.plot(data['R_HEELX'],data['R_HEELY'],'b',data['L_HEELX'],data['L_HEELY'],'g')
-                # plt.scatter(data['R_HEELX'][rhs],data['R_HEELY'][rhs],c='r')
-                # plt.scatter(data['L_HEELX'][lhs],data['L_HEELY'][lhs],c='y')
-                plt.plot(data['R_HEELY'],'b',data['L_HEELY'],'g')
-                plt.scatter(rhs,data['R_HEELY'][rhs],c='r')
-                plt.scatter(lhs,data['L_HEELY'][lhs],c='y')
-                plt.scatter(rto,data['R_HEELY'][rto],c='magenta')
-                plt.scatter(lto,data['L_HEELY'][lto],c='orange')
+                # plt.scatter(rhs,data['R_HEELY'][rhs],c='r')
+                # plt.scatter(lhs,data['L_HEELY'][lhs],c='y')
+                # plt.scatter(rto,data['R_HEELY'][rto],c='magenta')
+                # plt.scatter(lto,data['L_HEELY'][lto],c='orange')
                 plt.legend(['Right Heel','Left Heel','RHS','LHS','RTO','LTO'])
                 plt.ylabel('Lab Y\n(Across)')
                 xminlim,xmaxlim = plt.xlim()
 
                 plt.subplot(3,1,1)
-                # plt.plot(data['L_HEELX'],data['L_HEELZ'],'g')
-                # plt.scatter(data['L_HEELX'][lhs],data['L_HEELZ'][lhs],c='y')
-                plt.plot(data['L_HEELZ'],'g')
+                plt.plot(data['L_HEELX'],data['L_HEELZ'],'g')
+                plt.scatter(data['L_HEELX'][lhs],data['L_HEELZ'][lhs],c='y')
+                plt.scatter(data['L_HEELX'][rhs],data['L_HEELZ'][rhs],c='r')
+                plt.scatter(data['L_HEELX'][rto],data['L_HEELZ'][rto],c='magenta')
+                plt.scatter(data['L_HEELX'][lto],data['L_HEELZ'][lto],c='orange')
+                # plt.plot(data['L_HEELZ'],'g')
                 # plt.scatter(lhs,data['L_HEELZ'][lhs],c='y')
 
                 plt.scatter(rhs,data['L_HEELZ'][rhs],c='r')
@@ -497,15 +504,14 @@ class SessionDataObject:
                 plt.xlim([xminlim,xmaxlim])
 
                 plt.subplot(3,1,3)
-                # plt.plot(data['R_HEELX'],data['R_HEELZ'],'b')
-                # plt.scatter(data['R_HEELX'][rhs],data['R_HEELZ'][rhs],c='r')
-                plt.plot(data['R_HEELZ'],'b')
+                plt.plot(data['R_HEELX'],data['R_HEELZ'],'b')
+                plt.scatter(data['R_HEELX'][rhs],data['R_HEELZ'][rhs],c='r')
+                # plt.plot(data['R_HEELZ'],'b')
                 # plt.scatter(rhs,data['R_HEELZ'][rhs],c='r')
 
-                plt.scatter(rhs,data['R_HEELZ'][rhs],c='r')
-                plt.scatter(lhs,data['R_HEELZ'][lhs],c='y')
-                plt.scatter(rto,data['R_HEELZ'][rto],c='magenta')
-                plt.scatter(lto,data['R_HEELZ'][lto],c='orange')
+                plt.scatter(data['R_HEELX'][lhs],data['R_HEELZ'][lhs],c='y')
+                plt.scatter(data['R_HEELX'][rto],data['R_HEELZ'][rto],c='magenta')
+                plt.scatter(data['R_HEELX'][lto],data['R_HEELZ'][lto],c='orange')
 
                 plt.ylabel('Lab Z\n(Vertical)')
                 plt.xlabel('Lab X\n(Along)')
@@ -516,8 +522,32 @@ class SessionDataObject:
                 print(rto)
                 print(lto)
                 plt.suptitle(trial + '\n' + self.id+'\nV3D')
+
+            r_peaks = rhs
+            l_peaks = lhs
+            for _ in range(r_peaks.size+l_peaks.size):
+                if r_peaks.size ==0 or l_peaks.size ==0:
+                    break
+                r_min = np.min(r_peaks)
+                l_min = np.min(l_peaks)
+                if plot:
+                    plt.subplot(3,1,2)
+                    plt.plot([data['R_HEELX'].values[r_peaks[0]],data['L_HEELX'].values[l_peaks[0]]], [data['R_HEELY'].values[r_peaks[0]],data['L_HEELY'].values[l_peaks[0]]], 'pink', linestyle="--")
+                step_length.append(np.abs(data['R_HEELX'].values[r_peaks[0]]-data['L_HEELX'].values[l_peaks[0]]))
+                step_width.append(np.abs(data['R_HEELY'].values[r_peaks[0]]-data['L_HEELY'].values[l_peaks[0]]))
+                if r_min < l_min:
+                    r_peaks = np.delete(r_peaks,0)
+                else:
+                    l_peaks = np.delete(l_peaks,0)
+            if plot:
+                print("\nStep Width: %.3f +/- (%.3f)"%(np.mean(step_width),np.std(step_width)))
+                print("Step length: %.3f +/- (%.3f)"%(np.mean(step_length),np.std(step_length)))
                 plt.show()
             peakdict2.update({trial:[rhs,lhs,rto,lto]})
+
+        self.markerless_step_width = np.array(step_width)/self.height
+        self.markerless_step_length = np.array(step_length)/self.height
+
         self.peakdict2 = peakdict2
     
 
@@ -719,262 +749,179 @@ class SessionDataObject:
             plt.show()
         self.thorax_jerks = jerks
 
-
-    # def calculate_thorax_jerk_step_old(self,plot:bool):
-    #     self.markerless_output_data['Thorax_Jerk'] = np.nan
+    # def calculate_pelvis_pos(self,plot:bool):
+    #     self.markerless_output_data['Pelvis_Jerk'] = np.nan
+    #     self.markerless_output_data['Pelvis_Accel'] = np.nan
 
     #     walking_keys = getIndexNames('Walking',self.markerless_task_labels)
     #     for i in range(len(walking_keys)):
-    #         rhs = self.peakdict2[walking_keys[i]][0]
-    #         lhs = self.peakdict2[walking_keys[i]][1]
-    #         rto = self.peakdict2[walking_keys[i]][2]
-    #         lto = self.peakdict2[walking_keys[i]][3]
-    #         data = getMarkerlessData(self.markerless_data,walking_keys[i],['Distal ThoraxX','Distal ThoraxY','Distal ThoraxZ'])
-    #         if lhs[0]<lto[0]:
-    #             lhs=np.delete(lhs,0)
-    #         if rhs[0]<rto[0]:
-    #             rhs=np.delete(rhs,0)
-    #         jerks = []
-    #         #this will break if the first thing is not a toe off...
-    #         for _ in range(rto.size+lto.size):
-    #             if rto.size ==0 or lto.size ==0 or rhs.size==0 or lhs.size==0:
-    #                 break
-    #             r_min = np.min(rto)
-    #             l_min = np.min(lto)
-    #             if r_min < l_min:
-    #                 # #this is from TO to HS
-    #                 # min=r_min
-    #                 # max=np.min(rhs)
-    #                 # rto = np.delete(rto,0)
-    #                 # rhs = np.delete(rhs,0)
+    #         data = getMarkerlessData(self.markerless_data,walking_keys[i],['PelvisPosX','PelvisPosY','PelvisPosZ'])
+    #         nj, plotstuff = normJerk(data['PelvisPosX'],data['PelvisPosY'],data['PelvisPosZ'],self.markerless_fs)
+    #         xvelocity=plotstuff[0]
+    #         xaccel=plotstuff[1]
+    #         xjerk=plotstuff[2]
+    #         yvelocity=plotstuff[3]
+    #         yaccel=plotstuff[4]
+    #         yjerk=plotstuff[5]
+    #         zvelocity=plotstuff[6]
+    #         zaccel=plotstuff[7]
+    #         zjerk=plotstuff[8]
+    #         t = np.linspace(0,data.shape[0]/self.markerless_fs,self.markerless_fs*data.shape[0]) #check this
+    #         if plot:
+    #             plt.subplot(4,3,1)
+    #             plt.title('X - Along Lab')
+    #             plt.ylabel('Position (m)')
+    #             plt.plot(t,data['PelvisPosX'])
 
-    #                 #this is from TO to TO
-    #                 min=r_min
-    #                 max=l_min
-    #                 rto = np.delete(rto,0)
-    #             else:
-    #                 # # this is from TO to HS
-    #                 # min=l_min
-    #                 # max=np.min(lhs)
-    #                 # lto = np.delete(lto,0)
-    #                 # lhs = np.delete(lhs,0)
+    #             plt.subplot(4,3,2)
+    #             plt.title('Y - Across Lab')
+    #             plt.plot(t,data['PelvisPosY'])
 
-    #                 # this is from TO to TO
-    #                 min=l_min
-    #                 max=r_min
-    #                 lto = np.delete(lto,0)
+    #             plt.subplot(4,3,3)
+    #             plt.title('Z - Vertical Lab')
+    #             plt.plot(t,data['PelvisPosZ'])
 
-    #             nj, plotstuff = normJerk(data.loc[min:max,'Distal ThoraxX'],data.loc[min:max,'Distal ThoraxY'],data.loc[min:max,'Distal ThoraxZ'],self.markerless_fs)
+    #             plt.subplot(4,3,4)
+    #             plt.ylabel('Velocity (m/s)')
+    #             plt.plot(t,xvelocity)
 
-    #             if plot:
-    #                 plt.subplot(4,3,1)
-    #                 plt.plot(data['thoraxPosX'][min:max].values)
-    #                 plt.subplot(4,3,2)
-    #                 plt.plot(data['thoraxPosY'][min:max].values)
-    #                 plt.subplot(4,3,3)
-    #                 plt.plot(data['thoraxPosZ'][min:max].values)
-    #                 plt.subplot(4,3,4)
-    #                 plt.plot(plotstuff[0])
-    #                 plt.subplot(4,3,5)
-    #                 plt.plot(plotstuff[3])
-    #                 plt.subplot(4,3,6)
-    #                 plt.plot(plotstuff[6])
+    #             plt.subplot(4,3,5)
+    #             plt.plot(t,yvelocity)
 
-    #                 plt.subplot(4,3,7)
-    #                 plt.plot(plotstuff[1])
-    #                 plt.subplot(4,3,8)
-    #                 plt.plot(plotstuff[4])
-    #                 plt.subplot(4,3,9)
-    #                 plt.plot(plotstuff[7])
+    #             plt.subplot(4,3,6)
+    #             plt.plot(t,zvelocity)
 
-    #                 plt.subplot(4,3,10)
-    #                 plt.plot(plotstuff[2])
-    #                 plt.subplot(4,3,11)
-    #                 plt.plot(plotstuff[5])
-    #                 plt.subplot(4,3,12)
-    #                 plt.plot(plotstuff[8])
-    #                 plt.suptitle("thorax Step\n"+self.id)
-    #             jerks.append(nj) 
-    #     if plot:        
-    #         plt.show()
-    #         plt.hist(jerks)
-    #         plt.show()
-    #     self.thorax_jerks = jerks
+    #             plt.subplot(4,3,7)
+    #             plt.ylabel('Acceleration (m^2/s)')
+    #             plt.plot(t,xaccel)
 
+    #             plt.subplot(4,3,8)
+    #             plt.plot(t,yaccel)
 
-    def calculate_pelvis_pos(self,plot:bool):
-        self.markerless_output_data['Pelvis_Jerk'] = np.nan
-        self.markerless_output_data['Pelvis_Accel'] = np.nan
+    #             plt.subplot(4,3,9)
+    #             plt.plot(t,zaccel)
 
-        walking_keys = getIndexNames('Walking',self.markerless_task_labels)
-        for i in range(len(walking_keys)):
-            data = getMarkerlessData(self.markerless_data,walking_keys[i],['PelvisPosX','PelvisPosY','PelvisPosZ'])
-            nj, plotstuff = normJerk(data['PelvisPosX'],data['PelvisPosY'],data['PelvisPosZ'],self.markerless_fs)
-            xvelocity=plotstuff[0]
-            xaccel=plotstuff[1]
-            xjerk=plotstuff[2]
-            yvelocity=plotstuff[3]
-            yaccel=plotstuff[4]
-            yjerk=plotstuff[5]
-            zvelocity=plotstuff[6]
-            zaccel=plotstuff[7]
-            zjerk=plotstuff[8]
-            t = np.linspace(0,data.shape[0]/self.markerless_fs,self.markerless_fs*data.shape[0]) #check this
-            if plot:
-                plt.subplot(4,3,1)
-                plt.title('X - Along Lab')
-                plt.ylabel('Position (m)')
-                plt.plot(t,data['PelvisPosX'])
+    #             plt.subplot(4,3,10)  
+    #             plt.ylabel('Jerk (m^3/s)')
+    #             plt.plot(t,xjerk)
 
-                plt.subplot(4,3,2)
-                plt.title('Y - Across Lab')
-                plt.plot(t,data['PelvisPosY'])
-
-                plt.subplot(4,3,3)
-                plt.title('Z - Vertical Lab')
-                plt.plot(t,data['PelvisPosZ'])
-
-                plt.subplot(4,3,4)
-                plt.ylabel('Velocity (m/s)')
-                plt.plot(t,xvelocity)
-
-                plt.subplot(4,3,5)
-                plt.plot(t,yvelocity)
-
-                plt.subplot(4,3,6)
-                plt.plot(t,zvelocity)
-
-                plt.subplot(4,3,7)
-                plt.ylabel('Acceleration (m^2/s)')
-                plt.plot(t,xaccel)
-
-                plt.subplot(4,3,8)
-                plt.plot(t,yaccel)
-
-                plt.subplot(4,3,9)
-                plt.plot(t,zaccel)
-
-                plt.subplot(4,3,10)  
-                plt.ylabel('Jerk (m^3/s)')
-                plt.plot(t,xjerk)
-
-                plt.subplot(4,3,11)
-                plt.plot(t,yjerk)
-                plt.xlabel('Time (s)')
+    #             plt.subplot(4,3,11)
+    #             plt.plot(t,yjerk)
+    #             plt.xlabel('Time (s)')
                 
-                plt.subplot(4,3,12)
-                plt.plot(t,zjerk)
+    #             plt.subplot(4,3,12)
+    #             plt.plot(t,zjerk)
 
-                plt.suptitle('Pelvis Measurements vs Time')
+    #             plt.suptitle('Pelvis Measurements vs Time')
 
-            # https://stackoverflow.com/questions/5613244/root-mean-square-in-numpy-and-complications-of-matrix-and-arrays-of-numpy
-            accel_rms = np.sqrt(xaccel.dot(xaccel)/xaccel.size) + np.sqrt(yaccel.dot(yaccel)/yaccel.size) + np.sqrt(zaccel.dot(zaccel)/zaccel.size)
-            jerk_rms = np.sqrt(xjerk.dot(xjerk)/xjerk.size) + np.sqrt(yjerk.dot(yjerk)/yjerk.size) + np.sqrt(zjerk.dot(zjerk)/zjerk.size)
-            if plot:
-                print('\n'+walking_keys[i])
-                print("Accel rms: %.3f" % np.mean(accel_rms))
-                print("Jerk rms: %.3f" % np.mean(jerk_rms))
+    #         # https://stackoverflow.com/questions/5613244/root-mean-square-in-numpy-and-complications-of-matrix-and-arrays-of-numpy
+    #         accel_rms = np.sqrt(xaccel.dot(xaccel)/xaccel.size) + np.sqrt(yaccel.dot(yaccel)/yaccel.size) + np.sqrt(zaccel.dot(zaccel)/zaccel.size)
+    #         jerk_rms = np.sqrt(xjerk.dot(xjerk)/xjerk.size) + np.sqrt(yjerk.dot(yjerk)/yjerk.size) + np.sqrt(zjerk.dot(zjerk)/zjerk.size)
+    #         if plot:
+    #             print('\n'+walking_keys[i])
+    #             print("Accel rms: %.3f" % np.mean(accel_rms))
+    #             print("Jerk rms: %.3f" % np.mean(jerk_rms))
 
-            #caculate mean gait speed just using x
-            x = data['PelvisPosX'].values
-            dist = np.abs(np.min(x))+np.abs(np.max(x))
-            time = x.shape[0] / self.markerless_fs
-            speed = dist / time
-            normalized_accel_rms = accel_rms / speed
-            normalized_jerk_rms = jerk_rms / speed
-            if plot:
-                print("Speed: %.2f"%speed)
-                print("Norm Accel rms: %.3f" % np.mean(normalized_accel_rms))
-                print("Norm Jerk rms: %.3f" % np.mean(normalized_jerk_rms))
-                plt.show()
-            #assign output
-            self.markerless_output_data.loc[walking_keys[i],'Walking Speed'] = speed
-            self.markerless_output_data.loc[walking_keys[i],'Pelvis_Jerk'] = normalized_jerk_rms
-            self.markerless_output_data.loc[walking_keys[i],'Pelvis_Accel'] = normalized_accel_rms
+    #         #caculate mean gait speed just using x
+    #         x = data['PelvisPosX'].values
+    #         dist = np.abs(np.min(x))+np.abs(np.max(x))
+    #         time = x.shape[0] / self.markerless_fs
+    #         speed = dist / time
+    #         normalized_accel_rms = accel_rms / speed
+    #         normalized_jerk_rms = jerk_rms / speed
+    #         if plot:
+    #             print("Speed: %.2f"%speed)
+    #             print("Norm Accel rms: %.3f" % np.mean(normalized_accel_rms))
+    #             print("Norm Jerk rms: %.3f" % np.mean(normalized_jerk_rms))
+    #             plt.show()
+    #         #assign output
+    #         self.markerless_output_data.loc[walking_keys[i],'Walking Speed'] = speed
+    #         self.markerless_output_data.loc[walking_keys[i],'Pelvis_Jerk'] = normalized_jerk_rms
+    #         self.markerless_output_data.loc[walking_keys[i],'Pelvis_Accel'] = normalized_accel_rms
 
-    def calculate_thorax_pos(self, plot:bool):
-        self.markerless_output_data['Thorax_Jerk'] = np.nan
-        self.markerless_output_data['Thorax_Accel'] = np.nan
-        walking_keys = getIndexNames('Walking',self.markerless_task_labels)
-        for i in range(len(walking_keys)):
-            names = ['Distal ThoraxX','Distal ThoraxY','Distal ThoraxZ']   #there are also thorax angles too...but they dont look super cool
-            data = getMarkerlessData(self.markerless_data,walking_keys[i],names)
-            # x
-            xdata = data['Distal ThoraxX']
-            xvelocity = np.gradient(xdata,1/self.markerless_fs)
-            xaccel = np.gradient(xvelocity,1/self.markerless_fs)
-            xjerk = np.gradient(xaccel,1/self.markerless_fs)
-            # y
-            ydata = data['Distal ThoraxY']
-            yvelocity = np.gradient(ydata,1/self.markerless_fs)
-            yaccel = np.gradient(yvelocity,1/self.markerless_fs)
-            yjerk = np.gradient(yaccel,1/self.markerless_fs)
-            # z
-            zdata = data['Distal ThoraxZ']
-            zvelocity = np.gradient(zdata,1/self.markerless_fs)
-            zaccel = np.gradient(zvelocity,1/self.markerless_fs)
-            zjerk = np.gradient(zaccel,1/self.markerless_fs)
-            if plot:
-                plt.subplot(4,3,1)
-                plt.plot(data['Distal ThoraxX'])
-                plt.title("X\n(Along)")
-                plt.ylabel('Position\n$m$')
-                plt.subplot(4,3,2)
-                plt.plot(data['Distal ThoraxY'])
-                plt.title("Y\n(Across)")
-                plt.subplot(4,3,3)
-                plt.plot(data['Distal ThoraxZ'])
-                plt.title("Z\n(Vertical)")
-                plt.subplot(4,3,4)
-                plt.plot(xvelocity)
-                plt.ylabel('Velocity\n$m/s$')
-                plt.subplot(4,3,5)
-                plt.plot(yvelocity)
-                plt.subplot(4,3,6)
-                plt.plot(zvelocity)
-                plt.subplot(4,3,7)
-                plt.plot(xaccel)
-                plt.ylabel('Acceleration\n$m^2/s$')
-                plt.subplot(4,3,8)
-                plt.plot(yaccel)
-                plt.subplot(4,3,9)
-                plt.plot(zaccel)
-                plt.subplot(4,3,10)
-                plt.plot(xjerk)
-                plt.ylabel('Jerk\n$m^3/s$')
-                plt.subplot(4,3,11)
-                plt.xlabel('Time\n$Samples$')
-                plt.plot(yjerk)
-                plt.subplot(4,3,12)
-                plt.plot(zjerk)
-                plt.suptitle(self.id+'\n'+walking_keys[i])
+    # def calculate_thorax_pos(self, plot:bool):
+    #     self.markerless_output_data['Thorax_Jerk'] = np.nan
+    #     self.markerless_output_data['Thorax_Accel'] = np.nan
+    #     walking_keys = getIndexNames('Walking',self.markerless_task_labels)
+    #     for i in range(len(walking_keys)):
+    #         names = ['Distal ThoraxX','Distal ThoraxY','Distal ThoraxZ']   #there are also thorax angles too...but they dont look super cool
+    #         data = getMarkerlessData(self.markerless_data,walking_keys[i],names)
+    #         # x
+    #         xdata = data['Distal ThoraxX']
+    #         xvelocity = np.gradient(xdata,1/self.markerless_fs)
+    #         xaccel = np.gradient(xvelocity,1/self.markerless_fs)
+    #         xjerk = np.gradient(xaccel,1/self.markerless_fs)
+    #         # y
+    #         ydata = data['Distal ThoraxY']
+    #         yvelocity = np.gradient(ydata,1/self.markerless_fs)
+    #         yaccel = np.gradient(yvelocity,1/self.markerless_fs)
+    #         yjerk = np.gradient(yaccel,1/self.markerless_fs)
+    #         # z
+    #         zdata = data['Distal ThoraxZ']
+    #         zvelocity = np.gradient(zdata,1/self.markerless_fs)
+    #         zaccel = np.gradient(zvelocity,1/self.markerless_fs)
+    #         zjerk = np.gradient(zaccel,1/self.markerless_fs)
+    #         if plot:
+    #             plt.subplot(4,3,1)
+    #             plt.plot(data['Distal ThoraxX'])
+    #             plt.title("X\n(Along)")
+    #             plt.ylabel('Position\n$m$')
+    #             plt.subplot(4,3,2)
+    #             plt.plot(data['Distal ThoraxY'])
+    #             plt.title("Y\n(Across)")
+    #             plt.subplot(4,3,3)
+    #             plt.plot(data['Distal ThoraxZ'])
+    #             plt.title("Z\n(Vertical)")
+    #             plt.subplot(4,3,4)
+    #             plt.plot(xvelocity)
+    #             plt.ylabel('Velocity\n$m/s$')
+    #             plt.subplot(4,3,5)
+    #             plt.plot(yvelocity)
+    #             plt.subplot(4,3,6)
+    #             plt.plot(zvelocity)
+    #             plt.subplot(4,3,7)
+    #             plt.plot(xaccel)
+    #             plt.ylabel('Acceleration\n$m^2/s$')
+    #             plt.subplot(4,3,8)
+    #             plt.plot(yaccel)
+    #             plt.subplot(4,3,9)
+    #             plt.plot(zaccel)
+    #             plt.subplot(4,3,10)
+    #             plt.plot(xjerk)
+    #             plt.ylabel('Jerk\n$m^3/s$')
+    #             plt.subplot(4,3,11)
+    #             plt.xlabel('Time\n$Samples$')
+    #             plt.plot(yjerk)
+    #             plt.subplot(4,3,12)
+    #             plt.plot(zjerk)
+    #             plt.suptitle(self.id+'\n'+walking_keys[i])
             
-            # https://stackoverflow.com/questions/5613244/root-mean-square-in-numpy-and-complications-of-matrix-and-arrays-of-numpy
-            accel_rms = np.sqrt(xaccel.dot(xaccel)/xaccel.size) + np.sqrt(yaccel.dot(yaccel)/yaccel.size) + np.sqrt(zaccel.dot(zaccel)/zaccel.size)
-            jerk_rms = np.sqrt(xjerk.dot(xjerk)/xjerk.size) + np.sqrt(yjerk.dot(yjerk)/yjerk.size) + np.sqrt(zjerk.dot(zjerk)/zjerk.size)
-            if plot:
-                print('\n'+walking_keys[i])
-                print("Accel rms: %.3f" % np.mean(accel_rms))
-                print("Jerk rms: %.3f" % np.mean(jerk_rms))
+    #         # https://stackoverflow.com/questions/5613244/root-mean-square-in-numpy-and-complications-of-matrix-and-arrays-of-numpy
+    #         accel_rms = np.sqrt(xaccel.dot(xaccel)/xaccel.size) + np.sqrt(yaccel.dot(yaccel)/yaccel.size) + np.sqrt(zaccel.dot(zaccel)/zaccel.size)
+    #         jerk_rms = np.sqrt(xjerk.dot(xjerk)/xjerk.size) + np.sqrt(yjerk.dot(yjerk)/yjerk.size) + np.sqrt(zjerk.dot(zjerk)/zjerk.size)
+    #         if plot:
+    #             print('\n'+walking_keys[i])
+    #             print("Accel rms: %.3f" % np.mean(accel_rms))
+    #             print("Jerk rms: %.3f" % np.mean(jerk_rms))
 
-            #caculate mean gait speed just using x
-            x = data['Distal ThoraxX'].values
-            dist = np.abs(np.min(x))+np.abs(np.max(x))
-            time = x.shape[0] / self.markerless_fs
-            speed = dist / time
-            normalized_accel_rms = accel_rms / speed
-            normalized_jerk_rms = jerk_rms / speed
-            if plot:
-                print("Speed: %.2f"%speed)
-                print("Norm Accel rms: %.3f" % np.mean(normalized_accel_rms))
-                print("Norm Jerk rms: %.3f" % np.mean(normalized_jerk_rms))
-                plt.show()
-            #assign output
-            self.markerless_output_data.loc[walking_keys[i],'Walking Speed'] = speed
-            self.markerless_output_data.loc[walking_keys[i],'Thorax_Jerk'] = normalized_jerk_rms
-            self.markerless_output_data.loc[walking_keys[i],'Thorax_Accel'] = normalized_accel_rms
+    #         #caculate mean gait speed just using x
+    #         x = data['Distal ThoraxX'].values
+    #         dist = np.abs(np.min(x))+np.abs(np.max(x))
+    #         time = x.shape[0] / self.markerless_fs
+    #         speed = dist / time
+    #         normalized_accel_rms = accel_rms / speed
+    #         normalized_jerk_rms = jerk_rms / speed
+    #         if plot:
+    #             print("Speed: %.2f"%speed)
+    #             print("Norm Accel rms: %.3f" % np.mean(normalized_accel_rms))
+    #             print("Norm Jerk rms: %.3f" % np.mean(normalized_jerk_rms))
+    #             plt.show()
+    #         #assign output
+    #         self.markerless_output_data.loc[walking_keys[i],'Walking Speed'] = speed
+    #         self.markerless_output_data.loc[walking_keys[i],'Thorax_Jerk'] = normalized_jerk_rms
+    #         self.markerless_output_data.loc[walking_keys[i],'Thorax_Accel'] = normalized_accel_rms
 
-    def caculate_support(self,plot:bool):
+    def calculate_support(self,plot:bool):
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
         double_stances = []
         gait_cycle_duration = []
@@ -1237,7 +1184,7 @@ class SessionDataObject:
             plt.show()
         self.tandem_thorax_jerks = jerks
 
-    def caculate_support_tandem(self,plot:bool):
+    def calculate_support_tandem(self,plot:bool):
         tandem_keys = getIndexNames('Tandem',self.markerless_task_labels)
         double_stances = []
         gait_cycle_duration = []
