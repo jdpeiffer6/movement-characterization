@@ -1,14 +1,12 @@
 import os
 import json
-from re import L
 import pandas as pd
 import glob
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 from scipy import signal
-from scipy.interpolate import interp1d
 import numpy as np
-from functions.helper import normJerk, readTaskCSV,getIndexNames,getMarkerlessData,mapPeaks,distance3D,pathAccelJerk
+from functions.helper import normJerk, readTaskCSV,getIndexNames,getMarkerlessData,distance3D,pathAccelJerk
+from functions.SessionOutputData import SessionOutputData
 
 class SessionDataObject:
     def __init__(self, path: str,plot: bool,height: float,walking=True,ng=True):
@@ -28,24 +26,44 @@ class SessionDataObject:
         self.marker_output_data: pd.DataFrame
 
         self.plot = plot
+
+        self.output_data = SessionOutputData(self.id)
         
         # this path will be the path to each subject's folder and the date format for their session
         # for instance "...\\002\\2022-01-28"
-        print("loading data subject %s for date %s\n" % (path[-14:-11], path[-10:]))
+        self.s_print("loading data for date %s" %  path[-10:])
 
         # this uses the fact that all markerless will be 001 and all marker will be 002
         if os.path.isdir(self.path + '_001'):
             self.load_markerless()
+            if any(getIndexNames('Walking',self.markerless_task_labels)):
+                self.s_print('Walking')
+                self.analyze_walking(self.plot)
+            else:
+                self.s_print("No walking trials")
+            if any(getIndexNames('Tandem',self.markerless_task_labels)):
+                self.s_print('Tandem')
+                self.analyze_tandem(self.plot)
+            else:
+                self.s_print("No Tandem trials")
         else:
-            print("Could not find markerless session for %s"% self.id)
+            self.s_print("Could not find markerless session for %s"% self.id)
+
+
+
         if os.path.isdir(self.path + '_002'):
             self.load_markers()
+            if any(getIndexNames('NG',self.marker_task_labels)) and any(getIndexNames('NGLayout',self.marker_task_labels)):
+                self.s_print("NG")
+                self.analyze_NG(self.plot)
+            else:
+                self.s_print("No NG trials")
         else:
-            print("Could not find marker session for %s"% self.id)
-        if walking:
-            self.analyze_walking(self.plot)
-        if ng:
-            self.analyze_NG(self.plot)
+            self.s_print("Could not find marker session for %s"% self.id)
+
+
+    def s_print(self,str):
+        print('['+self.id+'] '+str)
 
     def load_markerless(self):
         self.markerless_data = {}
@@ -64,7 +82,7 @@ class SessionDataObject:
                 self.markerless_data[trial_name] = pd.DataFrame()
                 self.markerless_events[trial_name] = {}
                 self.markerless_data_unused[trial_name] = pd.DataFrame()
-                print(trial_name)
+                #print(trial_name)
             for j in range(len(data['signal'])):
                 if data['name'] in ['LHS','LTO','RHS','RTO']:
                     self.markerless_events[trial_name].update({data['name']:data['signal'][j]['data']})
@@ -87,24 +105,25 @@ class SessionDataObject:
             name = (i.split('\\')[-1]).split('.')[0]
             data = pd.read_csv(i,sep='\t',skiprows=11)
             self.marker_data[name] = data
-            print(name)
+            #print(name)
         self.marker_task_labels = readTaskCSV(self.path+'_002')
         self.marker_output_data = self.marker_task_labels
 
 
     def analyze_walking(self,plot):
-        self.walking_angle(True)
-        self.calculate_step_width(True)
-        self.calculate_step_height(True)
-        self.calculate_pelvis_jerk_step(True)
-        self.calculate_thorax_jerk_step(True)
-        self.calculate_support(True)
-        self.calculate_joint_angles_walking(True)
+        plot=False
+        self.walking_angle(plot)
+        self.calculate_step_width(plot)
+        self.calculate_step_height(plot)
+        self.calculate_pelvis_jerk_step(plot)
+        self.calculate_thorax_jerk_step(plot)
+        self.calculate_support(plot)
+        self.calculate_joint_angles_walking(plot)
     
     def analyze_tandem(self,plot):
-        self.calculate_pelvis_jerk_tandem(True)
-        self.calculate_thorax_jerk_tandem(True)
-        self.calculate_support_tandem(True)
+        self.calculate_pelvis_jerk_tandem(plot)
+        self.calculate_thorax_jerk_tandem(plot)
+        self.calculate_support_tandem(plot)
         
 
         
@@ -185,21 +204,35 @@ class SessionDataObject:
                 plt.subplot(1,2,2)
                 plt.plot(np.linspace(0,1,pplot_stuff.size),tplot_stuff,color = 'grey',alpha=0.4)
             
-            #calculate path length
+            # #calculate path length
             p_ideal_distance = distance3D(pstart,pxyz)
             t_ideal_distance = distance3D(tstart,txyz)
-            self.marker_output_data.loc[ng_keys[i],'Pointer Dist'] = p_dist / p_ideal_distance
-            self.marker_output_data.loc[ng_keys[i],'Thumb Dist'] = t_dist / t_ideal_distance
+            # self.marker_output_data.loc[ng_keys[i],'Pointer Dist'] = p_dist / p_ideal_distance
+            # self.marker_output_data.loc[ng_keys[i],'Thumb Dist'] = t_dist / t_ideal_distance
 
-            # save accel, jerk
-            self.marker_output_data.loc[ng_keys[i],'Pointer Accel'] = p_accel
-            self.marker_output_data.loc[ng_keys[i],'Thumb Accel'] = t_accel
-            self.marker_output_data.loc[ng_keys[i],'Pointer Jerk'] = p_jerk
-            self.marker_output_data.loc[ng_keys[i],'Thumb Jerk'] = t_jerk
+            #new save path length
+            self.output_data.addData('NG','Pointer Dist',np.array(p_dist/p_ideal_distance))
+            self.output_data.addData('NG','Thumb Dist',np.array(t_dist/t_ideal_distance))
 
-            # save MGA
-            self.marker_output_data.loc[ng_keys[i],'MGA'] = mga
-            self.marker_output_data.loc[ng_keys[i],'MGA_t'] = mga_i/end
+            # # save accel, jerk
+            # self.marker_output_data.loc[ng_keys[i],'Pointer Accel'] = p_accel
+            # self.marker_output_data.loc[ng_keys[i],'Thumb Accel'] = t_accel
+            # self.marker_output_data.loc[ng_keys[i],'Pointer Jerk'] = p_jerk
+            # self.marker_output_data.loc[ng_keys[i],'Thumb Jerk'] = t_jerk
+
+            # new save accel, jerk
+            self.output_data.addData('NG','Pointer Accel',np.array(p_accel))
+            self.output_data.addData('NG','Thumb Accel',np.array(t_accel))
+            self.output_data.addData('NG','Pointer Jerk',np.array(p_jerk))
+            self.output_data.addData('NG','Thumb Jerk',np.array(t_jerk))
+
+            # # save MGA
+            # self.marker_output_data.loc[ng_keys[i],'MGA'] = mga
+            # self.marker_output_data.loc[ng_keys[i],'MGA_t'] = mga_i/end
+
+            # new save MGA
+            self.output_data.addData('NG','MGA',np.array(mga))
+            self.output_data.addData('NG','MGA_t',np.array(mga_i/end))
 
         pplot_avg = np.delete(pplot_avg, (0), axis=0)
         tplot_avg = np.delete(tplot_avg, (0), axis=0)
@@ -281,10 +314,18 @@ class SessionDataObject:
             rh=np.append(rh,r_hip[r_hip_peaks[0]])
             lh=np.append(lh,l_hip[l_hip_peaks[0]])
 
+            self.output_data.addData('Walking','Knee_Angle_R',r_knee[r_knee_peaks[0]])
+            self.output_data.addData('Walking','Knee_Angle_L',l_knee[l_knee_peaks[0]])
+            self.output_data.addData('Walking','Hip_Angle_R',r_hip[r_hip_peaks[0]])
+            self.output_data.addData('Walking','Hip_Angle_L',l_hip[l_hip_peaks[0]])
+
+
             self.markerless_output_data.loc[walking_keys[i],'Knee_Angle_R'] = r_knee_peaks[0].mean()
             self.markerless_output_data.loc[walking_keys[i],'Knee_Angle_L'] = l_knee_peaks[0].mean()
             self.markerless_output_data.loc[walking_keys[i],'Hip_Angle_R'] = r_hip_peaks[0].mean()
             self.markerless_output_data.loc[walking_keys[i],'Hip_Angle_L'] = l_hip_peaks[0].mean()
+            
+
 
             if plot:
                 plt.subplot(2,2,1)
@@ -315,11 +356,7 @@ class SessionDataObject:
                 # manager = plt.get_current_fig_manager()
                 # manager.showMaximized()
                 plt.show()
-        #TODO: remove this...the data shouldnt be accessed in this way
-        self.r_hip_walking = rh   
-        self.l_hip_walking = lh
-        self.r_knee_walking = rk
-        self.l_knee_walking = lk
+
         if plot:
             print("Means:\nRH:\t%.2f\nLH:\t%.2f\nRK:\t%.2f\nLK:\t%.2f\n"%(rh.mean(),lh.mean(),rk.mean(),lk.mean()))
 
