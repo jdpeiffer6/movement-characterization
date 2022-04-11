@@ -319,14 +319,11 @@ class SessionDataObject:
             self.output_data.addData('Walking','Hip_Angle_R',r_hip[r_hip_peaks[0]])
             self.output_data.addData('Walking','Hip_Angle_L',l_hip[l_hip_peaks[0]])
 
-
             self.markerless_output_data.loc[walking_keys[i],'Knee_Angle_R'] = r_knee_peaks[0].mean()
             self.markerless_output_data.loc[walking_keys[i],'Knee_Angle_L'] = l_knee_peaks[0].mean()
             self.markerless_output_data.loc[walking_keys[i],'Hip_Angle_R'] = r_hip_peaks[0].mean()
             self.markerless_output_data.loc[walking_keys[i],'Hip_Angle_L'] = l_hip_peaks[0].mean()
             
-
-
             if plot:
                 plt.subplot(2,2,1)
                 plt.plot(l_hip)
@@ -353,8 +350,6 @@ class SessionDataObject:
                 plt.xlabel('Time (samples)')
 
                 plt.suptitle(walking_keys[i])
-                # manager = plt.get_current_fig_manager()
-                # manager.showMaximized()
                 plt.show()
 
         if plot:
@@ -457,10 +452,11 @@ class SessionDataObject:
                 print("\nStep Width: %.3f +/- (%.3f)"%(np.mean(step_width),np.std(step_width)))
                 print("Step length: %.3f +/- (%.3f)"%(np.mean(step_length),np.std(step_length)))
                 plt.show()
+            self.output_data.addData('Walking','step_length',np.array(step_length)/self.height)
+            self.output_data.addData('Walking','step_width',np.array(step_width)/self.height)
+            step_length = []
+            step_width = []
             peakdict2.update({trial:[rhs,lhs,rto,lto]})
-
-        self.markerless_step_width = np.array(step_width)/self.height
-        self.markerless_step_length = np.array(step_length)/self.height
 
         self.peakdict2 = peakdict2
     
@@ -494,7 +490,8 @@ class SessionDataObject:
             if plot:
                 print("Step height: %.3f +/- (%.3f)"%(np.mean(step_height),np.std(step_height)))
                 plt.show()
-        self.markerless_step_height = np.array(step_height)/self.height
+            self.output_data.addData('Walking','step_height',np.array(step_height)/self.height)
+            step_height = []
 
     def calculate_pelvis_jerk_step(self,plot:bool):
         self.markerless_output_data['Pelvis_Jerk'] = np.nan
@@ -560,6 +557,7 @@ class SessionDataObject:
                 tmp = anti_heel
                 anti_heel = side_heel
                 side_heel = tmp
+            self.output_data.addData('Walking','pelvis_jerk_step_normalized',np.array(jerks))
         if plot:
             plt.subplot(4,3,1)
             plt.ylabel('Position')
@@ -577,7 +575,6 @@ class SessionDataObject:
             plt.show()
             plt.hist(jerks)
             plt.show()
-        self.pelvis_jerks = jerks
 
     def calculate_thorax_jerk_step(self,plot:bool):
         self.markerless_output_data['Thorax_Jerk'] = np.nan
@@ -644,6 +641,7 @@ class SessionDataObject:
                 tmp = anti_heel
                 anti_heel = side_heel
                 side_heel = tmp
+            self.output_data.addData('Walking','thorax_jerk_step_normalized',np.array(jerks))
         if plot:
             plt.subplot(4,3,1)
             plt.ylabel('Position')
@@ -661,8 +659,6 @@ class SessionDataObject:
             plt.show()
             plt.hist(jerks)
             plt.show()
-        self.thorax_jerks = jerks
-
 
     def calculate_support(self,plot:bool):
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
@@ -725,6 +721,10 @@ class SessionDataObject:
                 anti_toe = np.delete(anti_toe,0)
                 double_stances.append(double_stance)
                 gait_cycle_duration.append(cycle_time/self.markerless_fs)
+            self.output_data.addData('Walking','double_stance',np.array(double_stances))
+            self.output_data.addData('Walking','gait_cycle_time',np.array(gait_cycle_duration))
+            double_stances = []
+            gait_cycle_duration = []
 
             if plot:
                 plt.title(self.id+'\n'+trial)
@@ -732,8 +732,6 @@ class SessionDataObject:
                 plt.xlabel('Time (s)')
                 plt.legend(['R HEEL','L HEEL','Double Stance','Single Stance'])
                 plt.show()
-        self.double_stances=double_stances
-        self.gait_cycle_duration = gait_cycle_duration
 
     def walking_angle(self,plot):
         self.markerless_output_data['Walking_Angle_Deviation'] = np.nan
@@ -743,7 +741,7 @@ class SessionDataObject:
             start_position = (data.iloc[0,0],data.iloc[0,1])   #XY coords
             end_position = (data.iloc[-1,0],data.iloc[-1,1])
             ang = np.degrees(np.arctan(np.abs(start_position[1]-end_position[1])/np.abs(start_position[0]-end_position[0])))
-            self.markerless_output_data.loc[trial,'Walking_Angle_Deviation'] = ang
+            self.output_data.addData('Walking','walking_angle_deviation',np.array(ang))
             if plot:
                 plt.plot(data['PelvisPosX'],data['PelvisPosY'],alpha=0.5)
                 plt.plot([start_position[0],end_position[0]],[start_position[1],end_position[1]],linestyle='--')
@@ -822,6 +820,7 @@ class SessionDataObject:
                 tmp = anti_heel
                 anti_heel = side_heel
                 side_heel = tmp
+            self.output_data.addData('Tandem','pelvis_jerk_step_normalized',np.array(jerks))
         if plot:
             plt.subplot(4,3,1)
             plt.ylabel('Position')
@@ -839,7 +838,6 @@ class SessionDataObject:
             plt.show()
             plt.hist(jerks)
             plt.show()
-        self.tandem_pelvis_jerks = jerks
 
     def calculate_thorax_jerk_tandem(self,plot:bool):
         tandem_keys = getIndexNames('Tandem',self.markerless_task_labels)
@@ -908,6 +906,7 @@ class SessionDataObject:
                 tmp = anti_heel
                 anti_heel = side_heel
                 side_heel = tmp
+            self.output_data.addData('Tandem','thorax_jerk_step_normalized',np.array(jerks))
         if plot:
             plt.subplot(4,3,1)
             plt.ylabel('Position')
@@ -925,7 +924,6 @@ class SessionDataObject:
             plt.show()
             plt.hist(jerks)
             plt.show()
-        self.tandem_thorax_jerks = jerks
 
     def calculate_support_tandem(self,plot:bool):
         tandem_keys = getIndexNames('Tandem',self.markerless_task_labels)
@@ -1000,6 +998,10 @@ class SessionDataObject:
                 anti_toe = np.delete(anti_toe,0)
                 double_stances.append(double_stance)
                 gait_cycle_duration.append(cycle_time/self.markerless_fs)
+            self.output_data.addData('Tandem','double_stance',np.array(double_stances))
+            self.output_data.addData('Tandem','gait_cycle_time',np.array(gait_cycle_duration))
+            double_stances = []
+            gait_cycle_duration = []
 
             if plot:
                 plt.title('Tandem '+self.id+'\n'+trial)
@@ -1007,5 +1009,3 @@ class SessionDataObject:
                 plt.xlabel('Time (s)')
                 plt.legend(['R HEEL','L HEEL','Double Stance','Single Stance'])
                 plt.show()
-        self.tandem_double_stances=double_stances
-        self.tandem_gait_cycle_duration = gait_cycle_duration

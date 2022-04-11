@@ -6,7 +6,7 @@ class SessionOutputData:
         self.id = id
         self.data : dict[str:dict[str:list[np.ndarray]]] = {}
     
-    def addData(self, task_name : str,metric : str, data : np.ndarray):
+    def addData(self, task_name : str, metric : str, data : np.ndarray):
 
         if task_name not in self.data.keys():
             self.data.update({task_name:dict()})
