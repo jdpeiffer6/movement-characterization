@@ -12,7 +12,9 @@ subject = SessionDataObject(path_to_subject,False,1.7,walking=True,ng=False)
 # %% pelvis jerk
 control_jerk=miguel.pelvis_jerks
 subject_jerk=subject.pelvis_jerks
-# subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlie
+
+subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlie
+
 data=[control_jerk,subject_jerk]
 bplot_jerk = plt.boxplot(data,labels=["Control","Subject"],patch_artist=True)
 plt.title("Pelvis Jerk Comparison")

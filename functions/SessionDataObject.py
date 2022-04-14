@@ -1,5 +1,6 @@
 import os
 import json
+from turtle import color
 import pandas as pd
 import glob
 import matplotlib.pyplot as plt
@@ -50,7 +51,6 @@ class SessionDataObject:
             self.s_print("Could not find markerless session for %s"% self.id)
 
 
-
         if os.path.isdir(self.path + '_002'):
             self.load_markers()
             if any(getIndexNames('NG',self.marker_task_labels)) and any(getIndexNames('NGLayout',self.marker_task_labels)):
@@ -64,6 +64,13 @@ class SessionDataObject:
 
     def s_print(self,str):
         print('['+self.id+'] '+str)
+
+    def getOutput(self, task_name : str, metric : str) -> np.ndarray:
+        if self.output_data.data[task_name][metric][0].shape is ():
+            #this is for outputs of length 1
+            return np.array(self.output_data.data[task_name][metric])
+        return np.concatenate(self.output_data.data[task_name][metric])
+        # return self.output_data.data[task_name][metric][-1]
 
     def load_markerless(self):
         self.markerless_data = {}
@@ -111,7 +118,6 @@ class SessionDataObject:
 
 
     def analyze_walking(self,plot):
-        plot=False
         self.walking_angle(plot)
         self.calculate_step_width(plot)
         self.calculate_step_height(plot)
@@ -198,7 +204,7 @@ class SessionDataObject:
             t_accel,t_jerk,tplot_stuff = pathAccelJerk(data['RTHU X'][start:end],data['RTHU Y'][start:end],data['RTHU Z'][start:end],self.marker_fs)                      
             pplot_avg = np.vstack((pplot_avg,pplot_stuff))
             tplot_avg = np.vstack((tplot_avg,tplot_stuff))
-            if True:
+            if plot:
                 plt.subplot(1,2,1)
                 plt.plot(np.linspace(0,1,pplot_stuff.size),pplot_stuff,color = 'grey',alpha=0.4)
                 plt.subplot(1,2,2)
@@ -241,17 +247,18 @@ class SessionDataObject:
         tplot_std = np.std(tplot_avg,axis=0)
         pplot_mean = np.mean(pplot_avg,axis=0)
         tplot_mean = np.mean(tplot_avg,axis=0)
-        plt.subplot(1,2,1)
-        plt.plot(np.linspace(0,1,pplot_stuff.size),pplot_mean,linewidth=2,color= 'black')
-        plt.fill_between(np.linspace(0,1,pplot_stuff.size),pplot_mean-pplot_std,pplot_mean+pplot_std,color=cc)
-        plt.xlabel('Pointer Fraction of Movement Completion')
-        plt.ylabel('Movement Speed\n$mm/s$')
-        plt.subplot(1,2,2)
-        plt.plot(np.linspace(0,1,pplot_stuff.size),tplot_mean,linewidth=2,color='black')
-        plt.fill_between(np.linspace(0,1,tplot_stuff.size),tplot_mean-tplot_std,tplot_mean+tplot_std,color=cc)
-        plt.xlabel('Thumb Fraction of Movement Completion')
-        plt.show()
-        if(plot):
+        
+        if plot:
+            plt.subplot(1,2,1)
+            plt.plot(np.linspace(0,1,pplot_stuff.size),pplot_mean,linewidth=2,color= 'black')
+            plt.fill_between(np.linspace(0,1,pplot_stuff.size),pplot_mean-pplot_std,pplot_mean+pplot_std,color=cc)
+            plt.xlabel('Pointer Fraction of Movement Completion')
+            plt.ylabel('Movement Speed\n$mm/s$')
+            plt.subplot(1,2,2)
+            plt.plot(np.linspace(0,1,pplot_stuff.size),tplot_mean,linewidth=2,color='black')
+            plt.fill_between(np.linspace(0,1,tplot_stuff.size),tplot_mean-tplot_std,tplot_mean+tplot_std,color=cc)
+            plt.xlabel('Thumb Fraction of Movement Completion')
+            plt.show()
             ax = plt.axes(projection ='3d')
             ax.scatter(block_x,block_y,block_z)
 
@@ -459,7 +466,6 @@ class SessionDataObject:
             peakdict2.update({trial:[rhs,lhs,rto,lto]})
 
         self.peakdict2 = peakdict2
-    
 
     def calculate_step_height(self,plot:bool):
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
@@ -494,6 +500,7 @@ class SessionDataObject:
             step_height = []
 
     def calculate_pelvis_jerk_step(self,plot:bool):
+        plot = True
         self.markerless_output_data['Pelvis_Jerk'] = np.nan
 
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
@@ -524,34 +531,43 @@ class SessionDataObject:
                 nj, plotstuff = normJerk(data.loc[minind:maxind,'PelvisPosX'],data.loc[minind:maxind,'PelvisPosY'],data.loc[minind:maxind,'PelvisPosZ'],self.markerless_fs)
 
                 if plot:
+                    # t = np.linspace(0,1,num=maxind-minind+1)
+                    # plt.subplot(4,3,1)
+                    # plt.plot(t,data.loc[minind:maxind,'PelvisPosX'].values)
+                    # plt.subplot(4,3,2)
+                    # plt.plot(t,data.loc[minind:maxind,'PelvisPosY'].values)
+                    # plt.subplot(4,3,3)
+                    # plt.plot(t,data.loc[minind:maxind,'PelvisPosZ'].values)
+                    # plt.subplot(4,3,4)
+                    # plt.plot(t,plotstuff[0])
+                    # plt.subplot(4,3,5)
+                    # plt.plot(t,plotstuff[3])
+                    # plt.subplot(4,3,6)
+                    # plt.plot(t,plotstuff[6])
+
+                    # plt.subplot(4,3,7)
+                    # plt.plot(t,plotstuff[1])
+                    # plt.subplot(4,3,8)
+                    # plt.plot(t,plotstuff[4])
+                    # plt.subplot(4,3,9)
+                    # plt.plot(t,plotstuff[7])
+
+                    # plt.subplot(4,3,10)
+                    # plt.plot(t,plotstuff[2])
+                    # plt.subplot(4,3,11)
+                    # plt.plot(t,plotstuff[5])
+                    # plt.subplot(4,3,12)
+                    # plt.plot(t,plotstuff[8])
+                    # plt.suptitle("Pelvis Kinematics over Step\n"+self.id)
+
+                    #this is for just the velocity profiles
                     t = np.linspace(0,1,num=maxind-minind+1)
-                    plt.subplot(4,3,1)
-                    plt.plot(t,data.loc[minind:maxind,'PelvisPosX'].values)
-                    plt.subplot(4,3,2)
-                    plt.plot(t,data.loc[minind:maxind,'PelvisPosY'].values)
-                    plt.subplot(4,3,3)
-                    plt.plot(t,data.loc[minind:maxind,'PelvisPosZ'].values)
-                    plt.subplot(4,3,4)
-                    plt.plot(t,plotstuff[0])
-                    plt.subplot(4,3,5)
-                    plt.plot(t,plotstuff[3])
-                    plt.subplot(4,3,6)
-                    plt.plot(t,plotstuff[6])
+                    if self.id == '002':
+                        plt.plot(t,plotstuff[6],color='#130AF1')
+                    elif self.id == '003':
+                        plt.plot(t,plotstuff[6],color='#FE8821')
 
-                    plt.subplot(4,3,7)
-                    plt.plot(t,plotstuff[1])
-                    plt.subplot(4,3,8)
-                    plt.plot(t,plotstuff[4])
-                    plt.subplot(4,3,9)
-                    plt.plot(t,plotstuff[7])
 
-                    plt.subplot(4,3,10)
-                    plt.plot(t,plotstuff[2])
-                    plt.subplot(4,3,11)
-                    plt.plot(t,plotstuff[5])
-                    plt.subplot(4,3,12)
-                    plt.plot(t,plotstuff[8])
-                    plt.suptitle("Pelvis Kinematics over Step\n"+self.id)
                 jerks.append(nj)
                 side_heel = np.delete(side_heel,0)
                 tmp = anti_heel
@@ -559,21 +575,27 @@ class SessionDataObject:
                 side_heel = tmp
             self.output_data.addData('Walking','pelvis_jerk_step_normalized',np.array(jerks))
         if plot:
-            plt.subplot(4,3,1)
-            plt.ylabel('Position')
-            plt.subplot(4,3,4)
-            plt.ylabel('Veloctiy')
-            plt.subplot(4,3,7)
-            plt.ylabel('Acceleration')
-            plt.subplot(4,3,10)
-            plt.xlabel('Time (fraction)\nX')
-            plt.ylabel('Jerk')
-            plt.subplot(4,3,11)
-            plt.xlabel('Time (fraction)\nY')
-            plt.subplot(4,3,12)
-            plt.xlabel('Time (fraction)\nZ')
-            plt.show()
-            plt.hist(jerks)
+            # normal
+            # plt.subplot(4,3,1)
+            # plt.ylabel('Position')
+            # plt.subplot(4,3,4)
+            # plt.ylabel('Veloctiy')
+            # plt.subplot(4,3,7)
+            # plt.ylabel('Acceleration')
+            # plt.subplot(4,3,10)
+            # plt.xlabel('Time (fraction)\nX')
+            # plt.ylabel('Jerk')
+            # plt.subplot(4,3,11)
+            # plt.xlabel('Time (fraction)\nY')
+            # plt.subplot(4,3,12)
+            # plt.xlabel('Time (fraction)\nZ')
+            # plt.show()
+            # plt.hist(jerks)
+            # plt.show()
+
+            #just velocity
+            plt.ylim([-0.6,0.6])
+            plt.title('Walking\n'+self.id)
             plt.show()
 
     def calculate_thorax_jerk_step(self,plot:bool):
@@ -754,6 +776,7 @@ class SessionDataObject:
             plt.show()
 
     def calculate_pelvis_jerk_tandem(self,plot:bool):
+        plot = True
         tandem_keys = getIndexNames('Tandem',self.markerless_task_labels)
         for i in range(len(tandem_keys)):
             rhs = np.array(self.markerless_events[tandem_keys[i]]['RHS'])
@@ -787,34 +810,43 @@ class SessionDataObject:
                 nj, plotstuff = normJerk(data.loc[minind:maxind,'PelvisPosX'],data.loc[minind:maxind,'PelvisPosY'],data.loc[minind:maxind,'PelvisPosZ'],self.markerless_fs)
 
                 if plot:
+                    # t = np.linspace(0,1,num=maxind-minind+1)
+                    # plt.subplot(4,3,1)
+                    # plt.plot(t,data.loc[minind:maxind,'PelvisPosX'].values)
+                    # plt.subplot(4,3,2)
+                    # plt.plot(t,data.loc[minind:maxind,'PelvisPosY'].values)
+                    # plt.subplot(4,3,3)
+                    # plt.plot(t,data.loc[minind:maxind,'PelvisPosZ'].values)
+                    # plt.subplot(4,3,4)
+                    # plt.plot(t,plotstuff[0])
+                    # plt.subplot(4,3,5)
+                    # plt.plot(t,plotstuff[3])
+                    # plt.subplot(4,3,6)
+                    # plt.plot(t,plotstuff[6])
+
+                    # plt.subplot(4,3,7)
+                    # plt.plot(t,plotstuff[1])
+                    # plt.subplot(4,3,8)
+                    # plt.plot(t,plotstuff[4])
+                    # plt.subplot(4,3,9)
+                    # plt.plot(t,plotstuff[7])
+
+                    # plt.subplot(4,3,10)
+                    # plt.plot(t,plotstuff[2])
+                    # plt.subplot(4,3,11)
+                    # plt.plot(t,plotstuff[5])
+                    # plt.subplot(4,3,12)
+                    # plt.plot(t,plotstuff[8])
+                    # plt.suptitle("Pelvis Kinematics over Step\n"+self.id)
+
+                    #this is for just the velocity profiles
                     t = np.linspace(0,1,num=maxind-minind+1)
-                    plt.subplot(4,3,1)
-                    plt.plot(t,data.loc[minind:maxind,'PelvisPosX'].values)
-                    plt.subplot(4,3,2)
-                    plt.plot(t,data.loc[minind:maxind,'PelvisPosY'].values)
-                    plt.subplot(4,3,3)
-                    plt.plot(t,data.loc[minind:maxind,'PelvisPosZ'].values)
-                    plt.subplot(4,3,4)
-                    plt.plot(t,plotstuff[0])
-                    plt.subplot(4,3,5)
-                    plt.plot(t,plotstuff[3])
-                    plt.subplot(4,3,6)
-                    plt.plot(t,plotstuff[6])
+                    if self.id == '002':
+                        plt.plot(t,plotstuff[6],color='#130AF1')
+                    elif self.id == '003':
+                        plt.plot(t,plotstuff[6],color='#FE8821')
 
-                    plt.subplot(4,3,7)
-                    plt.plot(t,plotstuff[1])
-                    plt.subplot(4,3,8)
-                    plt.plot(t,plotstuff[4])
-                    plt.subplot(4,3,9)
-                    plt.plot(t,plotstuff[7])
 
-                    plt.subplot(4,3,10)
-                    plt.plot(t,plotstuff[2])
-                    plt.subplot(4,3,11)
-                    plt.plot(t,plotstuff[5])
-                    plt.subplot(4,3,12)
-                    plt.plot(t,plotstuff[8])
-                    plt.suptitle("Pelvis Kinematics over Step\n"+self.id)
                 jerks.append(nj)
                 side_heel = np.delete(side_heel,0)
                 tmp = anti_heel
@@ -822,21 +854,27 @@ class SessionDataObject:
                 side_heel = tmp
             self.output_data.addData('Tandem','pelvis_jerk_step_normalized',np.array(jerks))
         if plot:
-            plt.subplot(4,3,1)
-            plt.ylabel('Position')
-            plt.subplot(4,3,4)
-            plt.ylabel('Veloctiy')
-            plt.subplot(4,3,7)
-            plt.ylabel('Acceleration')
-            plt.subplot(4,3,10)
-            plt.xlabel('Time (fraction)\nX')
-            plt.ylabel('Jerk')
-            plt.subplot(4,3,11)
-            plt.xlabel('Time (fraction)\nY')
-            plt.subplot(4,3,12)
-            plt.xlabel('Time (fraction)\nZ')
-            plt.show()
-            plt.hist(jerks)
+            #normal
+            # plt.subplot(4,3,1)
+            # plt.ylabel('Position')
+            # plt.subplot(4,3,4)
+            # plt.ylabel('Veloctiy')
+            # plt.subplot(4,3,7)
+            # plt.ylabel('Acceleration')
+            # plt.subplot(4,3,10)
+            # plt.xlabel('Time (fraction)\nX')
+            # plt.ylabel('Jerk')
+            # plt.subplot(4,3,11)
+            # plt.xlabel('Time (fraction)\nY')
+            # plt.subplot(4,3,12)
+            # plt.xlabel('Time (fraction)\nZ')
+            # plt.show()
+            # plt.hist(jerks)
+            # plt.show()
+
+            #just velocity
+            plt.title('Tandem\n'+self.id)
+            plt.ylim([-0.2,0.2])
             plt.show()
 
     def calculate_thorax_jerk_tandem(self,plot:bool):
