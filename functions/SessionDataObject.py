@@ -1,6 +1,6 @@
+from dis import dis
 import os
 import json
-from turtle import color
 import pandas as pd
 import glob
 import matplotlib.pyplot as plt
@@ -58,6 +58,11 @@ class SessionDataObject:
                 self.analyze_NG(self.plot)
             else:
                 self.s_print("No NG trials")
+            if any(getIndexNames('9HP',self.marker_task_labels)): 
+                self.s_print("9HP")
+                self.analyze_9HP(self.plot)
+            else:
+                self.s_print("No 9HP trials")
         else:
             self.s_print("Could not find marker session for %s"% self.id)
 
@@ -66,7 +71,8 @@ class SessionDataObject:
         print('['+self.id+'] '+str)
 
     def getOutput(self, task_name : str, metric : str) -> np.ndarray:
-        if self.output_data.data[task_name][metric][0].shape is ():
+        #TODO: Make this return none if does not exist
+        if self.output_data.data[task_name][metric][0].shape == ():
             #this is for outputs of length 1
             return np.array(self.output_data.data[task_name][metric])
         return np.concatenate(self.output_data.data[task_name][metric])
@@ -131,20 +137,169 @@ class SessionDataObject:
         self.calculate_thorax_jerk_tandem(plot)
         self.calculate_support_tandem(plot)
         
+    def analyze_9HP(self,plot):
+        plot = True
+        hp_keys = getIndexNames('9HP',self.marker_task_labels)
+        for trial in hp_keys:
 
-        
+            # LOAD DATA
+            data = self.marker_data[trial]
+            data = data * 10**-3   # convert from mm to m
+
+            # remove the Right/Left from data. could just not name the markers this lol
+            new_names = []
+            for colname in data.columns:
+                if colname[0] == 'R':
+                    colname = colname[1:]
+                    right = True
+                    # if right side, then the first peak will be positivie
+                elif colname[0] == 'L':
+                    colname = colname[1:]
+                    right = False
+                new_names.append(colname)
+            data.columns = new_names
+
+            #NOTE: flips y data if left hand....idk if i want to keep this
+            if not right:
+                data['THU Y'] = data['THU Y']*-1
+                data['POI Y'] = data['POI Y']*-1
+
+            d_dt_data = pd.DataFrame(np.gradient(data,1/self.marker_fs,axis=0),columns=data.columns)
+            threshold = 1
+            v_peaks = signal.find_peaks(d_dt_data['THU Y'],height = threshold, distance=50)
+            v_troughs = signal.find_peaks(-1*d_dt_data['THU Y'],height = threshold, distance=50)
+
+            # for right side, find the first positive peak
+            t_start_peak = []
+            t_stop_peak = []
+            for peakloc,amp in zip(v_peaks[0],v_peaks[1]['peak_heights']):
+                thresh = amp * 0.05
+
+                #left threshold
+                for i in range(peakloc,0,-1):
+                    if np.sum(d_dt_data['THU Y'][i:(i+5)] < thresh) == 1:
+                        t_start_peak.append(i)
+                        break
+                    
+                #right threshold 
+                for i in range(peakloc,data.shape[0],1):
+                    if np.sum(d_dt_data['THU Y'][i:(i+5)] < thresh) == 1:
+                        t_stop_peak.append(i)
+                        break
+
+            t_start_trough = []
+            t_stop_trough = []
+            for peakloc,amp in zip(v_troughs[0],v_troughs[1]['peak_heights']):
+                thresh = amp * -0.05
+
+                #left threshold
+                for i in range(peakloc,0,-1):
+                    if np.sum(d_dt_data['THU Y'][i:(i+5)] > thresh) == 1:
+                        t_start_trough.append(i)
+                        break
+                    
+                #right threshold 
+                for i in range(peakloc,data.shape[0],1):
+                    if np.sum(d_dt_data['THU Y'][i:(i+5)] > thresh) == 1:
+                        t_stop_trough.append(i)
+                        break
+
+            # dont include the last one because it doesnt have a corresponding return
+            l=np.min([len(t_start_trough),len(t_start_peak)])                
+            t_start_trough = t_start_trough[0:l]
+            t_stop_trough = t_stop_trough[0:l]
+            t_start_peak = t_start_peak[0:l]
+            t_stop_peak = t_stop_peak[0:l]
+
+            if plot:
+                plt.subplot(2,1,1)
+                plt.title('Medial Position')
+                plt.plot(data['THU Y'])
+                plt.plot(data['POI Y'])
+                plt.subplot(2,1,2)
+                plt.title('Medial Velocity')
+                plt.plot(d_dt_data['THU Y'])
+                plt.plot(d_dt_data['POI Y'])
+                plt.axhline(threshold,color='g',linestyle='--')
+                plt.axhline(-1*threshold,color='g',linestyle='--')
+
+                # plt.axvline(t_start_peak,color = 'pink',linestyle = '--')
+                plt.vlines(t_start_peak,-1*np.min(v_troughs[1]['peak_heights']),np.max(v_peaks[1]['peak_heights']),color='black',linestyle='--',alpha=0.5)
+                plt.vlines(t_stop_peak,-1*np.min(v_troughs[1]['peak_heights']),np.max(v_peaks[1]['peak_heights']),color='black',linestyle='--',alpha=0.5)
+
+                plt.vlines(t_start_trough,-1*np.min(v_troughs[1]['peak_heights']),np.max(v_troughs[1]['peak_heights']),color='black',linestyle='--',alpha=0.5)
+                plt.vlines(t_stop_trough,-1*np.min(v_troughs[1]['peak_heights']),np.max(v_troughs[1]['peak_heights']),color='black',linestyle='--',alpha=0.5)
+                # plt.axvline(t_stop,color = 'pink',linestyle = '--')
+                plt.legend(['Thumb','Pointer'])
+                plt.scatter(v_peaks[0],v_peaks[1]['peak_heights'],color='r')
+                plt.scatter(v_troughs[0],-1*v_troughs[1]['peak_heights'],color='r')
+                plt.show()
+
+            # ANALYSIS
+            # Total Movement Time
+            total_movement_time = (t_stop_peak[-1] - t_start_peak[0]) / self.marker_fs
+
+            # Single Peg Movement Time
+            single_peg_movement_time = []
+            for i in range(len(t_start_peak)-1):
+                single_peg_movement_time.append((t_start_peak[i+1]-t_start_peak[i])/self.marker_fs)
+
+            # Gasp-Reach Ratio
+            #TODO: need to find the time when they actually are done putting the peg in the hole...could do this with the x data?
+            #TODO: check if this is right
+            gr_ratio = []
+            for i in range(len(t_start_peak)-1):
+                gr = ((t_start_trough[i]-t_stop_peak[i]) + (t_start_peak[i+1] - t_stop_trough[i])) / ((t_stop_peak[i] - t_start_peak[i]) + (t_stop_trough[i]-t_start_trough[i])) 
+                gr_ratio.append(gr)           
+            print(gr_ratio)
+
+            # Peak Speed
+            peak_speeds = []
+            peak_speeds.append(v_troughs[1]['peak_heights'])
+            peak_speeds.append(v_peaks[1]['peak_heights'])
+
+            # Time to peak speed
+            time_to_peak_speeds = []
+            for tinit,tpeak in zip(t_start_peak,v_peaks[0]):
+                time_to_peak_speeds.append((tpeak - tinit)/self.marker_fs)
+            for tinit,tpeak in zip(t_start_trough,v_troughs[0]):
+                time_to_peak_speeds.append((tpeak - tinit)/self.marker_fs)
+
+            # Tangential Velocity Smoothness
+            #TODO: This needs to be flipped for R/L
+            #TODO: need to figure out which is return and transfer
+            pointer_v = np.abs(d_dt_data['POI X']) + np.abs(d_dt_data['POI Y']) + np.abs(d_dt_data['POI Z'])
+            thumb_v = np.abs(d_dt_data['THU X']) + np.abs(d_dt_data['THU Y']) + np.abs(d_dt_data['THU Z'])
+            for i in range(len(t_start_peak)):
+                plt.subplot(2,2,1)
+                plt.ylabel('Pointer')
+                t = np.linspace(0,1,t_stop_peak[i]-t_start_peak[i])
+                plt.plot(t,pointer_v[t_start_peak[i]:t_stop_peak[i]])
+                plt.subplot(2,2,3)
+                plt.plot(t,thumb_v[t_start_peak[i]:t_stop_peak[i]])
+                plt.ylabel('Thumb')
+
+                plt.subplot(2,2,2)
+                t = np.linspace(0,1,t_stop_trough[i]-t_start_trough[i])
+                plt.plot(t,pointer_v[t_start_trough[i]:t_stop_trough[i]])
+                plt.subplot(2,2,4)
+                plt.plot(t,thumb_v[t_start_trough[i]:t_stop_trough[i]])
+            plt.show()
+                
+            # a=5
+
     def analyze_NG(self,plot):
         ng_layout_keys = getIndexNames('NGLayout',self.marker_task_labels)
         ng_keys = getIndexNames('NG',self.marker_task_labels)
         # plt.rcParams['figure.figsize'] = [10, 8]
 
         # establish baseline position
-        static_data = self.marker_data[ng_layout_keys[0]]
-        static_data = static_data[['BR X', 'BR Y', 'BR Z', 'BL X', 'BL Y', 'BL Z', 'BT X','BT Y', 'BT Z']]  #TODO: establish only one layout in protocol
-        block_x = np.mean((np.mean(static_data['BR X']),np.mean(static_data['BL X']),np.mean(static_data['BT X'])))
-        block_y = np.mean(static_data['BT Y'])
-        block_z = np.mean((np.mean(static_data['BR Z']),np.mean(static_data['BL Z'])))
-        block_coords = (block_x,block_y,block_z)
+        # static_data = self.marker_data[ng_layout_keys[0]]
+        # static_data = static_data[['BR X', 'BR Y', 'BR Z', 'BL X', 'BL Y', 'BL Z', 'BT X','BT Y', 'BT Z']]  #TODO: establish only one layout in protocol
+        # block_x = np.mean((np.mean(static_data['BR X']),np.mean(static_data['BL X']),np.mean(static_data['BT X'])))
+        # block_y = np.mean(static_data['BT Y'])
+        # block_z = np.mean((np.mean(static_data['BR Z']),np.mean(static_data['BL Z'])))
+        # block_coords = (block_x,block_y,block_z)
         
         list_of_ends = []
         pplot_avg = np.zeros(200)
@@ -171,9 +326,16 @@ class SessionDataObject:
                 list_of_ends = [155,141,122,138,135,137,118,138,132,137]
                 end = list_of_ends[i]
                 cc = '#5ab4ac'
+            elif self.id == '004':
+                list_of_starts = [64,128,126,55,66,52,60,51,48,66]
+                start = list_of_starts[i]
+                list_of_ends = [174,245,245,171,182,156,162,171,165,191]
+                end = list_of_ends[i]
+                cc = '#d8b365'
             else:
                 plt.plot(data['RPOI Z'])
                 plt.show()
+                start = 0
                 end = int(input("where to truncate: "))
                 list_of_ends.append(end)
             pstart = ( data['RPOI X'][0],data['RPOI Y'][0],data['RPOI Z'][0])
@@ -260,7 +422,7 @@ class SessionDataObject:
             plt.xlabel('Thumb Fraction of Movement Completion')
             plt.show()
             ax = plt.axes(projection ='3d')
-            ax.scatter(block_x,block_y,block_z)
+            # ax.scatter(block_x,block_y,block_z)
 
         for i in range(len(ng_keys)):
             data = self.marker_data[ng_keys[i]]
@@ -365,6 +527,7 @@ class SessionDataObject:
 
     def calculate_step_width(self,plot: bool):
         """Uses the RTO,LTO,etc from V3D"""
+        # plot = True
         peakdict2 = {}
         step_width = []
         step_length = []
@@ -500,7 +663,6 @@ class SessionDataObject:
             step_height = []
 
     def calculate_pelvis_jerk_step(self,plot:bool):
-        plot = True
         self.markerless_output_data['Pelvis_Jerk'] = np.nan
 
         walking_keys = getIndexNames('Walking',self.markerless_task_labels)
@@ -521,7 +683,7 @@ class SessionDataObject:
                 if side_heel.size == 0 or anti_heel.size==0: 
                     break
                 if anti_heel[0] < side_heel[0]:
-                    print("Possible Error")
+                    self.s_print("["+walking_keys[i]+"] Possible Error")
 
                 minind = side_heel[0]
                 maxind = anti_heel[0]
@@ -531,41 +693,41 @@ class SessionDataObject:
                 nj, plotstuff = normJerk(data.loc[minind:maxind,'PelvisPosX'],data.loc[minind:maxind,'PelvisPosY'],data.loc[minind:maxind,'PelvisPosZ'],self.markerless_fs)
 
                 if plot:
-                    # t = np.linspace(0,1,num=maxind-minind+1)
-                    # plt.subplot(4,3,1)
-                    # plt.plot(t,data.loc[minind:maxind,'PelvisPosX'].values)
-                    # plt.subplot(4,3,2)
-                    # plt.plot(t,data.loc[minind:maxind,'PelvisPosY'].values)
-                    # plt.subplot(4,3,3)
-                    # plt.plot(t,data.loc[minind:maxind,'PelvisPosZ'].values)
-                    # plt.subplot(4,3,4)
-                    # plt.plot(t,plotstuff[0])
-                    # plt.subplot(4,3,5)
-                    # plt.plot(t,plotstuff[3])
-                    # plt.subplot(4,3,6)
-                    # plt.plot(t,plotstuff[6])
-
-                    # plt.subplot(4,3,7)
-                    # plt.plot(t,plotstuff[1])
-                    # plt.subplot(4,3,8)
-                    # plt.plot(t,plotstuff[4])
-                    # plt.subplot(4,3,9)
-                    # plt.plot(t,plotstuff[7])
-
-                    # plt.subplot(4,3,10)
-                    # plt.plot(t,plotstuff[2])
-                    # plt.subplot(4,3,11)
-                    # plt.plot(t,plotstuff[5])
-                    # plt.subplot(4,3,12)
-                    # plt.plot(t,plotstuff[8])
-                    # plt.suptitle("Pelvis Kinematics over Step\n"+self.id)
-
-                    #this is for just the velocity profiles
                     t = np.linspace(0,1,num=maxind-minind+1)
-                    if self.id == '002':
-                        plt.plot(t,plotstuff[6],color='#130AF1')
-                    elif self.id == '003':
-                        plt.plot(t,plotstuff[6],color='#FE8821')
+                    plt.subplot(4,3,1)
+                    plt.plot(t,data.loc[minind:maxind,'PelvisPosX'].values)
+                    plt.subplot(4,3,2)
+                    plt.plot(t,data.loc[minind:maxind,'PelvisPosY'].values)
+                    plt.subplot(4,3,3)
+                    plt.plot(t,data.loc[minind:maxind,'PelvisPosZ'].values)
+                    plt.subplot(4,3,4)
+                    plt.plot(t,plotstuff[0])
+                    plt.subplot(4,3,5)
+                    plt.plot(t,plotstuff[3])
+                    plt.subplot(4,3,6)
+                    plt.plot(t,plotstuff[6])
+
+                    plt.subplot(4,3,7)
+                    plt.plot(t,plotstuff[1])
+                    plt.subplot(4,3,8)
+                    plt.plot(t,plotstuff[4])
+                    plt.subplot(4,3,9)
+                    plt.plot(t,plotstuff[7])
+
+                    plt.subplot(4,3,10)
+                    plt.plot(t,plotstuff[2])
+                    plt.subplot(4,3,11)
+                    plt.plot(t,plotstuff[5])
+                    plt.subplot(4,3,12)
+                    plt.plot(t,plotstuff[8])
+                    plt.suptitle("Pelvis Kinematics over Step\n"+self.id)
+
+                    # #this is for just the velocity profiles
+                    # t = np.linspace(0,1,num=maxind-minind+1)
+                    # if self.id == '002':
+                    #     plt.plot(t,plotstuff[6],color='#130AF1')
+                    # elif self.id == '003':
+                    #     plt.plot(t,plotstuff[6],color='#FE8821')
 
 
                 jerks.append(nj)
@@ -576,27 +738,27 @@ class SessionDataObject:
             self.output_data.addData('Walking','pelvis_jerk_step_normalized',np.array(jerks))
         if plot:
             # normal
-            # plt.subplot(4,3,1)
-            # plt.ylabel('Position')
-            # plt.subplot(4,3,4)
-            # plt.ylabel('Veloctiy')
-            # plt.subplot(4,3,7)
-            # plt.ylabel('Acceleration')
-            # plt.subplot(4,3,10)
-            # plt.xlabel('Time (fraction)\nX')
-            # plt.ylabel('Jerk')
-            # plt.subplot(4,3,11)
-            # plt.xlabel('Time (fraction)\nY')
-            # plt.subplot(4,3,12)
-            # plt.xlabel('Time (fraction)\nZ')
-            # plt.show()
-            # plt.hist(jerks)
-            # plt.show()
-
-            #just velocity
-            plt.ylim([-0.6,0.6])
-            plt.title('Walking\n'+self.id)
+            plt.subplot(4,3,1)
+            plt.ylabel('Position')
+            plt.subplot(4,3,4)
+            plt.ylabel('Veloctiy')
+            plt.subplot(4,3,7)
+            plt.ylabel('Acceleration')
+            plt.subplot(4,3,10)
+            plt.xlabel('Time (fraction)\nX')
+            plt.ylabel('Jerk')
+            plt.subplot(4,3,11)
+            plt.xlabel('Time (fraction)\nY')
+            plt.subplot(4,3,12)
+            plt.xlabel('Time (fraction)\nZ')
             plt.show()
+            plt.hist(jerks)
+            plt.show()
+
+            # #just velocity
+            # plt.ylim([-0.6,0.6])
+            # plt.title('Walking\n'+self.id)
+            # plt.show()
 
     def calculate_thorax_jerk_step(self,plot:bool):
         self.markerless_output_data['Thorax_Jerk'] = np.nan
@@ -619,7 +781,7 @@ class SessionDataObject:
                 if side_heel.size == 0 or anti_heel.size==0: 
                     break
                 if anti_heel[0] < side_heel[0]:
-                    print("Possible Error")
+                    self.s_print("["+walking_keys[i]+"] Possible Error")
 
                 minind = side_heel[0]
                 maxind = anti_heel[0]
@@ -720,7 +882,7 @@ class SessionDataObject:
                
                 cycle_time = side_heel[1] - side_heel[0]
                 if anti_toe[0] > side_heel[1] or anti_heel[0] > side_heel[1] or side_toe[0] > side_heel[1]:
-                    print("Possible Error")
+                    self.s_print("["+trial+"] Possible Error")
                 if plot:   
                     plt.axvspan(t[side_heel[0]-offset],t[anti_toe[0]-offset],color='green',alpha=0.2)
                     plt.axvspan(t[anti_toe[0]-offset],t[anti_heel[0]-offset],color='magenta',alpha=0.2)
@@ -776,7 +938,7 @@ class SessionDataObject:
             plt.show()
 
     def calculate_pelvis_jerk_tandem(self,plot:bool):
-        plot = True
+        # plot = True
         tandem_keys = getIndexNames('Tandem',self.markerless_task_labels)
         for i in range(len(tandem_keys)):
             rhs = np.array(self.markerless_events[tandem_keys[i]]['RHS'])
@@ -800,7 +962,7 @@ class SessionDataObject:
                 if side_heel.size == 0 or anti_heel.size==0: 
                     break
                 if anti_heel[0] < side_heel[0]:
-                    print("Possible Error")
+                    self.s_print("["+tandem_keys[i]+"] Possible Error")
 
                 minind = side_heel[0]
                 maxind = anti_heel[0]
@@ -810,41 +972,41 @@ class SessionDataObject:
                 nj, plotstuff = normJerk(data.loc[minind:maxind,'PelvisPosX'],data.loc[minind:maxind,'PelvisPosY'],data.loc[minind:maxind,'PelvisPosZ'],self.markerless_fs)
 
                 if plot:
-                    # t = np.linspace(0,1,num=maxind-minind+1)
-                    # plt.subplot(4,3,1)
-                    # plt.plot(t,data.loc[minind:maxind,'PelvisPosX'].values)
-                    # plt.subplot(4,3,2)
-                    # plt.plot(t,data.loc[minind:maxind,'PelvisPosY'].values)
-                    # plt.subplot(4,3,3)
-                    # plt.plot(t,data.loc[minind:maxind,'PelvisPosZ'].values)
-                    # plt.subplot(4,3,4)
-                    # plt.plot(t,plotstuff[0])
-                    # plt.subplot(4,3,5)
-                    # plt.plot(t,plotstuff[3])
-                    # plt.subplot(4,3,6)
-                    # plt.plot(t,plotstuff[6])
-
-                    # plt.subplot(4,3,7)
-                    # plt.plot(t,plotstuff[1])
-                    # plt.subplot(4,3,8)
-                    # plt.plot(t,plotstuff[4])
-                    # plt.subplot(4,3,9)
-                    # plt.plot(t,plotstuff[7])
-
-                    # plt.subplot(4,3,10)
-                    # plt.plot(t,plotstuff[2])
-                    # plt.subplot(4,3,11)
-                    # plt.plot(t,plotstuff[5])
-                    # plt.subplot(4,3,12)
-                    # plt.plot(t,plotstuff[8])
-                    # plt.suptitle("Pelvis Kinematics over Step\n"+self.id)
-
-                    #this is for just the velocity profiles
                     t = np.linspace(0,1,num=maxind-minind+1)
-                    if self.id == '002':
-                        plt.plot(t,plotstuff[6],color='#130AF1')
-                    elif self.id == '003':
-                        plt.plot(t,plotstuff[6],color='#FE8821')
+                    plt.subplot(4,3,1)
+                    plt.plot(t,data.loc[minind:maxind,'PelvisPosX'].values)
+                    plt.subplot(4,3,2)
+                    plt.plot(t,data.loc[minind:maxind,'PelvisPosY'].values)
+                    plt.subplot(4,3,3)
+                    plt.plot(t,data.loc[minind:maxind,'PelvisPosZ'].values)
+                    plt.subplot(4,3,4)
+                    plt.plot(t,plotstuff[0])
+                    plt.subplot(4,3,5)
+                    plt.plot(t,plotstuff[3])
+                    plt.subplot(4,3,6)
+                    plt.plot(t,plotstuff[6])
+
+                    plt.subplot(4,3,7)
+                    plt.plot(t,plotstuff[1])
+                    plt.subplot(4,3,8)
+                    plt.plot(t,plotstuff[4])
+                    plt.subplot(4,3,9)
+                    plt.plot(t,plotstuff[7])
+
+                    plt.subplot(4,3,10)
+                    plt.plot(t,plotstuff[2])
+                    plt.subplot(4,3,11)
+                    plt.plot(t,plotstuff[5])
+                    plt.subplot(4,3,12)
+                    plt.plot(t,plotstuff[8])
+                    plt.suptitle("Pelvis Kinematics over Tandem Step\n"+self.id)
+
+                    # #this is for just the velocity profiles
+                    # t = np.linspace(0,1,num=maxind-minind+1)
+                    # if self.id == '002':
+                    #     plt.plot(t,plotstuff[6],color='#130AF1')
+                    # elif self.id == '003':
+                    #     plt.plot(t,plotstuff[6],color='#FE8821')
 
 
                 jerks.append(nj)
@@ -854,28 +1016,28 @@ class SessionDataObject:
                 side_heel = tmp
             self.output_data.addData('Tandem','pelvis_jerk_step_normalized',np.array(jerks))
         if plot:
-            #normal
-            # plt.subplot(4,3,1)
-            # plt.ylabel('Position')
-            # plt.subplot(4,3,4)
-            # plt.ylabel('Veloctiy')
-            # plt.subplot(4,3,7)
-            # plt.ylabel('Acceleration')
-            # plt.subplot(4,3,10)
-            # plt.xlabel('Time (fraction)\nX')
-            # plt.ylabel('Jerk')
-            # plt.subplot(4,3,11)
-            # plt.xlabel('Time (fraction)\nY')
-            # plt.subplot(4,3,12)
-            # plt.xlabel('Time (fraction)\nZ')
-            # plt.show()
-            # plt.hist(jerks)
-            # plt.show()
-
-            #just velocity
-            plt.title('Tandem\n'+self.id)
-            plt.ylim([-0.2,0.2])
+            # normal
+            plt.subplot(4,3,1)
+            plt.ylabel('Position')
+            plt.subplot(4,3,4)
+            plt.ylabel('Veloctiy')
+            plt.subplot(4,3,7)
+            plt.ylabel('Acceleration')
+            plt.subplot(4,3,10)
+            plt.xlabel('Time (fraction)\nX')
+            plt.ylabel('Jerk')
+            plt.subplot(4,3,11)
+            plt.xlabel('Time (fraction)\nY')
+            plt.subplot(4,3,12)
+            plt.xlabel('Time (fraction)\nZ')
             plt.show()
+            plt.hist(jerks)
+            plt.show()
+
+            # #just velocity
+            # plt.title('Tandem\n'+self.id)
+            # plt.ylim([-0.2,0.2])
+            # plt.show()
 
     def calculate_thorax_jerk_tandem(self,plot:bool):
         tandem_keys = getIndexNames('Tandem',self.markerless_task_labels)
@@ -901,7 +1063,7 @@ class SessionDataObject:
                 if side_heel.size == 0 or anti_heel.size==0: 
                     break
                 if anti_heel[0] < side_heel[0]:
-                    print("Possible Error")
+                    self.s_print("["+tandem_keys[i]+"] Possible Error")
 
                 minind = side_heel[0]
                 maxind = anti_heel[0]
@@ -1013,7 +1175,7 @@ class SessionDataObject:
                
                 cycle_time = side_heel[1] - side_heel[0]
                 if anti_toe[0] > side_heel[1] or anti_heel[0] > side_heel[1] or side_toe[0] > side_heel[1]:
-                    print("Possible Error")
+                    self.s_print("["+trial+"] Possible Error")
                 if plot:   
                     plt.axvspan(t[side_heel[0]-offset],t[anti_toe[0]-offset],color='green',alpha=0.2)
                     plt.axvspan(t[anti_toe[0]-offset],t[anti_heel[0]-offset],color='magenta',alpha=0.2)
