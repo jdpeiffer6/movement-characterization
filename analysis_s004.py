@@ -6,9 +6,9 @@ from scipy.stats import ranksums
 
 path_to_subject =  "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\004\\2022-04-12"
 subject = SessionDataObject(path_to_subject,False,1.7,walking=True,ng=False)
-# path_to_miguel = "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\002\\2022-01-28"
-# miguel = SessionDataObject(path_to_miguel,False,1.75,walking=True,ng=False)
-
+path_to_miguel = "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\001\\2022-02-22"
+miguel = SessionDataObject(path_to_miguel,False,1.75,walking=True,ng=False)
+# 
 # # %% Pelvis jerk
 # control_jerk=miguel.getOutput('Walking','pelvis_jerk_step_normalized')
 # subject_jerk=subject.getOutput('Walking','pelvis_jerk_step_normalized')

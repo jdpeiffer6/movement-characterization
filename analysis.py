@@ -3,6 +3,9 @@ from functions.SessionDataObject import SessionDataObject
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import ranksums
+from scipy import stats
+import statsmodels.api as sm
+from scipy.stats import shapiro
 
 path_to_miguel = "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\002\\2022-01-28"
 miguel = SessionDataObject(path_to_miguel,False,1.75,walking=True,ng=False)
@@ -23,6 +26,11 @@ plt.title("Pelvis Jerk Comparison")
 plt.ylabel("Normalized Jerk")
 a=ranksums(control_jerk,subject_jerk)
 print("Pelvis Jerk p: %.5f"%a[1])
+plt.show()
+# %% QQ
+stats.probplot(data[0],dist="norm",plot=plt)
+plt.show()
+stats.probplot(data[1],dist="norm",plot=plt)
 plt.show()
 # %% Thorax jerk
 control_jerk=miguel.getOutput('Walking','thorax_jerk_step_normalized')

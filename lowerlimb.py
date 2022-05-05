@@ -8,15 +8,25 @@ path_to_miguel = "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\0
 miguel = SessionDataObject(path_to_miguel,False,1.75,walking=True,ng=False)
 path_to_subject =  "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\003\\2022-02-11"
 subject = SessionDataObject(path_to_subject,False,1.7,walking=True,ng=False)
+path_to_subject2 =  "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\004\\2022-04-12"
+subject2 = SessionDataObject(path_to_subject2,False,1.7,walking=False,ng=False)
 
 # %% pelvis jerk
-control_jerk=miguel.pelvis_jerks
-subject_jerk=subject.pelvis_jerks
-data=[control_jerk,subject_jerk]
-bplot_jerk = plt.boxplot(data,labels=["Control RMS","Subject RMS"],patch_artist=True)
+control_jerk=miguel.getOutput('Walking','pelvis_jerk_step_normalized')
+subject_jerk=subject.getOutput('Walking','pelvis_jerk_step_normalized')
+subject2_jerk=subject2.getOutput('Walking','pelvis_jerk_step_normalized')
+
+subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlier
+subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlier
+subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlier
+
+data=[control_jerk,subject_jerk,subject2_jerk]
+bplot_jerk = plt.boxplot(data,labels=["Control","S1","S2"],patch_artist=True)
 plt.title("Pelvis Jerk Comparison")
 plt.ylabel("Normalized Jerk")
 a=ranksums(control_jerk,subject_jerk)
+print("Pelvis Jerk: %.5f"%a[1])
+a=ranksums(control_jerk,subject2_jerk)
 print("Pelvis Jerk: %.5f"%a[1])
 plt.show()
 # %% thorax jerk

@@ -138,8 +138,12 @@ class SessionDataObject:
         self.calculate_support_tandem(plot)
         
     def analyze_9HP(self,plot):
+        # return
         plot = True
         hp_keys = getIndexNames('9HP',self.marker_task_labels)
+        if plot:
+            fig_right,axs_right = plt.subplots(2,2)
+            fig_left,axs_left = plt.subplots(2,2)
         for trial in hp_keys:
 
             # LOAD DATA
@@ -158,6 +162,9 @@ class SessionDataObject:
                     right = False
                 new_names.append(colname)
             data.columns = new_names
+
+            if 'right' not in locals():
+                return
 
             #NOTE: flips y data if left hand....idk if i want to keep this
             if not right:
@@ -211,38 +218,46 @@ class SessionDataObject:
             t_start_peak = t_start_peak[0:l]
             t_stop_peak = t_stop_peak[0:l]
 
-            if plot:
-                plt.subplot(2,1,1)
-                plt.title('Medial Position')
-                plt.plot(data['THU Y'])
-                plt.plot(data['POI Y'])
-                plt.subplot(2,1,2)
-                plt.title('Medial Velocity')
-                plt.plot(d_dt_data['THU Y'])
-                plt.plot(d_dt_data['POI Y'])
-                plt.axhline(threshold,color='g',linestyle='--')
-                plt.axhline(-1*threshold,color='g',linestyle='--')
+            # if plot:
+            #     plt.subplot(2,1,1)
+            #     plt.title('Medial Position')
+            #     plt.plot(data['THU Y'])
+            #     plt.plot(data['POI Y'])
+            #     plt.subplot(2,1,2)
+            #     plt.title('Medial Velocity')
+            #     plt.plot(d_dt_data['THU Y'])
+            #     plt.plot(d_dt_data['POI Y'])
+            #     plt.axhline(threshold,color='g',linestyle='--')
+            #     plt.axhline(-1*threshold,color='g',linestyle='--')
 
-                # plt.axvline(t_start_peak,color = 'pink',linestyle = '--')
-                plt.vlines(t_start_peak,-1*np.min(v_troughs[1]['peak_heights']),np.max(v_peaks[1]['peak_heights']),color='black',linestyle='--',alpha=0.5)
-                plt.vlines(t_stop_peak,-1*np.min(v_troughs[1]['peak_heights']),np.max(v_peaks[1]['peak_heights']),color='black',linestyle='--',alpha=0.5)
+            #     # plt.axvline(t_start_peak,color = 'pink',linestyle = '--')
+            #     plt.vlines(t_start_peak,-1*np.min(v_troughs[1]['peak_heights']),np.max(v_peaks[1]['peak_heights']),color='black',linestyle='--',alpha=0.5)
+            #     plt.vlines(t_stop_peak,-1*np.min(v_troughs[1]['peak_heights']),np.max(v_peaks[1]['peak_heights']),color='black',linestyle='--',alpha=0.5)
 
-                plt.vlines(t_start_trough,-1*np.min(v_troughs[1]['peak_heights']),np.max(v_troughs[1]['peak_heights']),color='black',linestyle='--',alpha=0.5)
-                plt.vlines(t_stop_trough,-1*np.min(v_troughs[1]['peak_heights']),np.max(v_troughs[1]['peak_heights']),color='black',linestyle='--',alpha=0.5)
-                # plt.axvline(t_stop,color = 'pink',linestyle = '--')
-                plt.legend(['Thumb','Pointer'])
-                plt.scatter(v_peaks[0],v_peaks[1]['peak_heights'],color='r')
-                plt.scatter(v_troughs[0],-1*v_troughs[1]['peak_heights'],color='r')
-                plt.show()
+            #     plt.vlines(t_start_trough,-1*np.min(v_troughs[1]['peak_heights']),np.max(v_troughs[1]['peak_heights']),color='black',linestyle='--',alpha=0.5)
+            #     plt.vlines(t_stop_trough,-1*np.min(v_troughs[1]['peak_heights']),np.max(v_troughs[1]['peak_heights']),color='black',linestyle='--',alpha=0.5)
+            #     # plt.axvline(t_stop,color = 'pink',linestyle = '--')
+            #     plt.legend(['Thumb','Pointer'])
+            #     plt.scatter(v_peaks[0],v_peaks[1]['peak_heights'],color='r')
+            #     plt.scatter(v_troughs[0],-1*v_troughs[1]['peak_heights'],color='r')
+            #     plt.show()
 
             # ANALYSIS
             # Total Movement Time
             total_movement_time = (t_stop_peak[-1] - t_start_peak[0]) / self.marker_fs
+            if right:
+                self.output_data.addData("9HPR","TMT",np.array(total_movement_time))
+            else:
+                self.output_data.addData("9HPL","TMT",np.array(total_movement_time))
 
             # Single Peg Movement Time
             single_peg_movement_time = []
             for i in range(len(t_start_peak)-1):
                 single_peg_movement_time.append((t_start_peak[i+1]-t_start_peak[i])/self.marker_fs)
+            if right:
+                self.output_data.addData("9HPR","Single Peg MT",np.array(single_peg_movement_time))
+            else:
+                self.output_data.addData("9HPL","Single Peg MT",np.array(single_peg_movement_time))
 
             # Gasp-Reach Ratio
             #TODO: need to find the time when they actually are done putting the peg in the hole...could do this with the x data?
@@ -250,43 +265,80 @@ class SessionDataObject:
             gr_ratio = []
             for i in range(len(t_start_peak)-1):
                 gr = ((t_start_trough[i]-t_stop_peak[i]) + (t_start_peak[i+1] - t_stop_trough[i])) / ((t_stop_peak[i] - t_start_peak[i]) + (t_stop_trough[i]-t_start_trough[i])) 
-                gr_ratio.append(gr)           
+                gr_ratio.append(gr)
+            if right:
+                self.output_data.addData("9HPR","GR Ratio",np.array(gr_ratio))
+            else:
+                self.output_data.addData("9HPL","GR Ratio",np.array(gr_ratio))           
             print(gr_ratio)
 
             # Peak Speed
-            peak_speeds = []
-            peak_speeds.append(v_troughs[1]['peak_heights'])
-            peak_speeds.append(v_peaks[1]['peak_heights'])
-
+            peak_speeds = v_peaks[1]['peak_heights']
+            if right:
+                self.output_data.addData("9HPR","Peak Speeds",peak_speeds)
+            else:
+                self.output_data.addData("9HPL","Peak Speeds",peak_speeds)           
+            
+            # Trough Speed
+            #TODO: should i assign this to something different?
+            trough_speeds=v_troughs[1]['peak_heights']
+            if right:
+                self.output_data.addData("9HPR","Peak Speeds",trough_speeds)
+            else:
+                self.output_data.addData("9HPL","Peak Speeds",trough_speeds)
+                
             # Time to peak speed
             time_to_peak_speeds = []
             for tinit,tpeak in zip(t_start_peak,v_peaks[0]):
                 time_to_peak_speeds.append((tpeak - tinit)/self.marker_fs)
             for tinit,tpeak in zip(t_start_trough,v_troughs[0]):
                 time_to_peak_speeds.append((tpeak - tinit)/self.marker_fs)
+            if right:
+                self.output_data.addData("9HPR","Peak Speed Time",np.array(time_to_peak_speeds))
+            else:
+                self.output_data.addData("9HPL","Peak Speed Time",np.array(time_to_peak_speeds))
 
             # Tangential Velocity Smoothness
-            #TODO: This needs to be flipped for R/L
             #TODO: need to figure out which is return and transfer
             pointer_v = np.abs(d_dt_data['POI X']) + np.abs(d_dt_data['POI Y']) + np.abs(d_dt_data['POI Z'])
             thumb_v = np.abs(d_dt_data['THU X']) + np.abs(d_dt_data['THU Y']) + np.abs(d_dt_data['THU Z'])
-            for i in range(len(t_start_peak)):
-                plt.subplot(2,2,1)
-                plt.ylabel('Pointer')
-                t = np.linspace(0,1,t_stop_peak[i]-t_start_peak[i])
-                plt.plot(t,pointer_v[t_start_peak[i]:t_stop_peak[i]])
-                plt.subplot(2,2,3)
-                plt.plot(t,thumb_v[t_start_peak[i]:t_stop_peak[i]])
-                plt.ylabel('Thumb')
 
-                plt.subplot(2,2,2)
-                t = np.linspace(0,1,t_stop_trough[i]-t_start_trough[i])
-                plt.plot(t,pointer_v[t_start_trough[i]:t_stop_trough[i]])
-                plt.subplot(2,2,4)
-                plt.plot(t,thumb_v[t_start_trough[i]:t_stop_trough[i]])
+            # Jerk
+            for sstart,sstop in zip(t_start_peak,t_stop_peak):
+                nj,_ = normJerk(data['POI X'][sstart:sstop],data['POI Y'][sstart:sstop],data['POI Z'][sstart:sstop],self.marker_fs)
+                if right:
+                    self.output_data.addData("9HPR","Peak Jerk",nj)
+                else:
+                    self.output_data.addData("9HPL","Peak Jerk",nj)
+
+            if plot:
+                if right:
+                    axx = axs_right
+                else:
+                    axx = axs_left
+                for i in range(len(t_start_peak)):
+                    # plt.subplot(2,2,1)
+                    t = np.linspace(0,1,t_stop_peak[i]-t_start_peak[i])
+                    axx[0,0].plot(t,pointer_v[t_start_peak[i]:t_stop_peak[i]])
+                    axx[0,0].set_title("Transfer")
+                    axx[0,0].set_ylabel("Pointer")
+                    # axs2.subplot(2,2,3)
+                    axx[1,0].plot(t,thumb_v[t_start_peak[i]:t_stop_peak[i]])
+                    axx[1,0].set_ylabel("Thumb")
+                    # axs2.subplot(2,2,2)
+                    t = np.linspace(0,1,t_stop_trough[i]-t_start_trough[i])
+                    axx[0,1].plot(t,pointer_v[t_start_trough[i]:t_stop_trough[i]])
+                    axx[0,1].set_title("Return")
+                    # axs2.subplot(2,2,4)
+                    axx[1,1].plot(t,thumb_v[t_start_trough[i]:t_stop_trough[i]])
+                # fig2.ylabel('Thumb')
+                # fig2.ylabel('Pointer')
+                if right:
+                    fig_right.suptitle(self.id+"\nRight")
+                else:
+                    fig_left.suptitle(self.id+"\nLeft")
+        if plot:
             plt.show()
-                
-            # a=5
 
     def analyze_NG(self,plot):
         ng_layout_keys = getIndexNames('NGLayout',self.marker_task_labels)
@@ -487,12 +539,8 @@ class SessionDataObject:
             self.output_data.addData('Walking','Knee_Angle_L',l_knee[l_knee_peaks[0]])
             self.output_data.addData('Walking','Hip_Angle_R',r_hip[r_hip_peaks[0]])
             self.output_data.addData('Walking','Hip_Angle_L',l_hip[l_hip_peaks[0]])
-
-            self.markerless_output_data.loc[walking_keys[i],'Knee_Angle_R'] = r_knee_peaks[0].mean()
-            self.markerless_output_data.loc[walking_keys[i],'Knee_Angle_L'] = l_knee_peaks[0].mean()
-            self.markerless_output_data.loc[walking_keys[i],'Hip_Angle_R'] = r_hip_peaks[0].mean()
-            self.markerless_output_data.loc[walking_keys[i],'Hip_Angle_L'] = l_hip_peaks[0].mean()
-            
+            print(walking_keys[i])
+            print(l_hip[l_hip_peaks[0]]) 
             if plot:
                 plt.subplot(2,2,1)
                 plt.plot(l_hip)
