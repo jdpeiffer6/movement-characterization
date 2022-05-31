@@ -9,6 +9,8 @@ path_to_subject =  "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\
 subject = SessionDataObject(path_to_subject,False,1.7,walking=False,ng=False)
 path_to_subject2 =  "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\004\\2022-04-12"
 subject2 = SessionDataObject(path_to_subject2,False,1.7,walking=False,ng=False)
+path_to_subject3 =  "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\005\\2022-05-19"
+subject3 = SessionDataObject(path_to_subject3,False,1.829,walking=False,ng=False)
 path_to_miguel = "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\002\\2022-01-28"
 miguel = SessionDataObject(path_to_miguel,False,1.75,walking=False,ng=False)
 labels=['#1BD9DE','#FCBF29','#FE8821','#d8b365','#5ab4ac','#d8b365']
@@ -17,20 +19,22 @@ labels=['#1BD9DE','#FCBF29','#FE8821','#d8b365','#5ab4ac','#d8b365']
 control_jerk=miguel.getOutput('Walking','pelvis_jerk_step_normalized')
 subject_jerk=subject.getOutput('Walking','pelvis_jerk_step_normalized')
 subject2_jerk=subject2.getOutput('Walking','pelvis_jerk_step_normalized')
+subject3_jerk=subject3.getOutput('Walking','pelvis_jerk_step_normalized')
 
-# subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlier
-# subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlier
-# subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlier
+subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlier
+subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlier
+subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlier
 
-data=[control_jerk,subject_jerk,subject2_jerk]
-plt.subplot(1,6,1)
-bplot_jerk = plt.boxplot(data,labels=["Control","S1","S2"],patch_artist=True)
+data=[control_jerk,subject_jerk,subject2_jerk,subject3_jerk]
+# plt.subplot(1,6,1)
+bplot_jerk = plt.boxplot(data,labels=["Control","S1","S2","S3"],patch_artist=True)
 plt.title("Pelvis Jerk")
 plt.ylabel("Normalized Jerk")
 print("Pelvis Jerk: ")
 print(f'C: {np.mean(control_jerk)} ({np.std(control_jerk)})')
 print(f'S1: {np.mean(subject_jerk)} ({np.std(subject_jerk)})')
 print(f'S2: {np.mean(subject2_jerk)} ({np.std(subject2_jerk)})')
+print(f'S3: {np.mean(subject3_jerk)} ({np.std(subject3_jerk)})')
 
 j=0
 for i in bplot_jerk['boxes']:
@@ -46,37 +50,45 @@ a=stats.ttest_ind(control_jerk,subject_jerk)
 print("Pelvis Jerk S1: %.5f"%a[1])
 a=stats.ttest_ind(control_jerk,subject2_jerk)
 print("Pelvis Jerk S2: %.5f"%a[1])
+a=stats.ttest_ind(control_jerk,subject3_jerk)
+print("Pelvis Jerk S3: %.5f"%a[1])
 # plt.show()
 
-# # %% Thorax jerk
-# control_jerk=miguel.getOutput('Walking','thorax_jerk_step_normalized')
-# subject_jerk=subject.getOutput('Walking','thorax_jerk_step_normalized')
-# subject2_jerk=subject2.getOutput('Walking','thorax_jerk_step_normalized')
+# %% Thorax jerk
+control_jerk=miguel.getOutput('Walking','thorax_jerk_step_normalized')
+subject_jerk=subject.getOutput('Walking','thorax_jerk_step_normalized')
+subject2_jerk=subject2.getOutput('Walking','thorax_jerk_step_normalized')
+subject3_jerk=subject3.getOutput('Walking','thorax_jerk_step_normalized')
 
-# subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlier
-# subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlier
+subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlier
+subject_jerk=np.delete(subject_jerk,np.argmax(subject_jerk))  #removes outlier
 
-# data=[control_jerk,subject_jerk,subject2_jerk]
-# bplot_jerk = plt.boxplot(data,labels=["Control","S1","S2"],patch_artist=True)
-# plt.title("Thorax Jerk Comparison")
-# plt.ylabel("Normalized Jerk")
-# a=stats.ttest_ind(control_jerk,subject_jerk)
-# print("Thorax Jerk p: %.5f"%a[1])
-# plt.show()
-# # %% Walking paths
-# control_devangle=miguel.getOutput('Walking','walking_angle_deviation')
-# subject_devangle=subject.getOutput('Walking','walking_angle_deviation')
-# subject2_devangle=subject2.getOutput('Walking','walking_angle_deviation')
-# control_devangle=control_devangle[~np.isnan(control_devangle)]
-# subject_devangle=subject_devangle[~np.isnan(subject_devangle)]
-# subject2_devangle=subject2_devangle[~np.isnan(subject2_devangle)]
-# data=[control_devangle,subject_devangle,subject2_devangle]
-# bplot_jerk = plt.boxplot(data,labels=["Control","S1","S2"],patch_artist=True)
-# plt.title("Wakling Deviation Angles Comparison")
-# plt.ylabel("Angle (Degrees)")
-# a=stats.ttest_ind(control_devangle,subject_devangle)
-# print("Angle Dev p: %.5f"%a[1])
-# plt.show()
+data=[control_jerk,subject_jerk,subject2_jerk,subject3_jerk]
+bplot_jerk = plt.boxplot(data,labels=["Control","S1","S2","S3"],patch_artist=True)
+plt.title("Thorax Jerk Comparison")
+plt.ylabel("Normalized Jerk")
+a=stats.ttest_ind(control_jerk,subject_jerk)
+print("Thorax Jerk p: %.5f"%a[1])
+plt.show()
+# %% Walking paths
+control_devangle=miguel.getOutput('Walking','walking_angle_deviation')
+subject_devangle=subject.getOutput('Walking','walking_angle_deviation')
+subject2_devangle=subject2.getOutput('Walking','walking_angle_deviation')
+subject3_devangle=subject3.getOutput('Walking','walking_angle_deviation')
+
+control_devangle=control_devangle[~np.isnan(control_devangle)]
+subject_devangle=subject_devangle[~np.isnan(subject_devangle)]
+subject2_devangle=subject2_devangle[~np.isnan(subject2_devangle)]
+subject3_devangle=subject3_devangle[~np.isnan(subject3_devangle)]
+data=[control_devangle,subject_devangle,subject2_devangle,subject3_devangle]
+bplot_jerk = plt.boxplot(data,labels=["Control","S1","S2","S3"],patch_artist=True)
+plt.title("Wakling Deviation Angles Comparison")
+plt.ylabel("Angle (Degrees)")
+a=stats.ttest_ind(control_devangle,subject_devangle)
+print("Angle Dev S1 p: %.5f"%a[1])
+a=stats.ttest_ind(control_devangle,subject3_devangle)
+print("Angle Dev S3 p: %.5f"%a[1])
+plt.show()
 
 # %% Joint angles
 miguel_angles = []
@@ -91,6 +103,7 @@ subject_angles.append(subject.getOutput('Walking','Hip_Angle_L'))
 subject_angles.append(subject.getOutput('Walking','Knee_Angle_R'))
 subject_angles.append(subject.getOutput('Walking','Knee_Angle_L'))
 print(f'S1: {np.mean(subject_angles[2])} - {np.mean(subject_angles[3])}')
+
 subject2_angles = []
 subject2_angles.append(subject2.getOutput('Walking','Hip_Angle_R'))
 subject2_angles.append(subject2.getOutput('Walking','Hip_Angle_L'))
@@ -98,23 +111,32 @@ subject2_angles.append(subject2.getOutput('Walking','Knee_Angle_R'))
 subject2_angles.append(subject2.getOutput('Walking','Knee_Angle_L'))
 print(f'S2: {np.mean(subject2_angles[2])} - {np.mean(subject2_angles[3])}')
 
-plt.subplot(1,6,2)
-bplot2 = plt.boxplot([np.concatenate((miguel_angles[0],miguel_angles[1])),np.concatenate((subject_angles[0],subject_angles[1])),np.concatenate((subject2_angles[0],subject2_angles[1]))],labels=["Control","S1","S2"],patch_artist=True)
+subject3_angles = []
+subject3_angles.append(subject3.getOutput('Walking','Hip_Angle_R'))
+subject3_angles.append(subject3.getOutput('Walking','Hip_Angle_L'))
+subject3_angles.append(subject3.getOutput('Walking','Knee_Angle_R'))
+subject3_angles.append(subject3.getOutput('Walking','Knee_Angle_L'))
+print(f'S3: {np.mean(subject3_angles[2])} - {np.mean(subject3_angles[3])}')
+
+
+bplot2 = plt.boxplot([np.concatenate((miguel_angles[0],miguel_angles[1])),np.concatenate((subject_angles[0],subject_angles[1])),np.concatenate((subject2_angles[0],subject2_angles[1])),np.concatenate((subject3_angles[0],subject3_angles[1]))],labels=["Control","S1","S2","S3"],patch_artist=True)
 plt.ylabel("Max Joint Angle (deg)")
 plt.title("Hip Angles")
 j=0
 for i in bplot2['boxes']:
     i.set_facecolor(labels[j])
     j+=1
+plt.show()
 
-plt.subplot(1,6,3)
-bplot3 = plt.boxplot([np.concatenate((miguel_angles[2],miguel_angles[3])),np.concatenate((subject_angles[2],subject_angles[3])),np.concatenate((subject2_angles[2],subject2_angles[3]))],labels=["Control","S1","S2"],patch_artist=True)
+bplot3 = plt.boxplot([np.concatenate((miguel_angles[2],miguel_angles[3])),np.concatenate((subject_angles[2],subject_angles[3])),np.concatenate((subject2_angles[2],subject2_angles[3])),np.concatenate((subject3_angles[2],subject3_angles[3]))],labels=["Control","S1","S2","S3"],patch_artist=True)
 plt.ylabel("Max Joint Angle (deg)")
 plt.title("Knee Angles")
 j=0
 for i in bplot3['boxes']:
     i.set_facecolor(labels[j])
     j+=1
+
+#TODO: THIS IS WHERE I STOPPED
 print('\nAngles:')
 #intra subject
 print("Control R/L Hip: %.6f\nSubject R/L Hip: %.6f\nSubject 2 R/L Hip: %.6f\n"%(stats.ttest_ind(miguel_angles[0],miguel_angles[1])[1],stats.ttest_ind(subject_angles[0],subject_angles[1])[1],stats.ttest_ind(subject2_angles[0],subject2_angles[1])[1]))
