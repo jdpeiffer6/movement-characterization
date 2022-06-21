@@ -39,12 +39,12 @@ class SessionDataObject:
             self.load_markerless()
             if any(getIndexNames('Walking',self.markerless_task_labels)):
                 self.s_print('Walking')
-                self.analyze_walking(self.plot)
+                self.analyze_walking(walking)
             else:
                 self.s_print("No walking trials")
             if any(getIndexNames('Tandem',self.markerless_task_labels)):
                 self.s_print('Tandem')
-                self.analyze_tandem(self.plot)
+                self.analyze_tandem(walking)
             else:
                 self.s_print("No Tandem trials")
         else:
@@ -53,14 +53,14 @@ class SessionDataObject:
 
         if os.path.isdir(self.path + '_002'):
             self.load_markers()
-            if any(getIndexNames('NG',self.marker_task_labels)) and any(getIndexNames('NGLayout',self.marker_task_labels)):
+            if any(getIndexNames('NG',self.marker_task_labels)):
                 self.s_print("NG")
-                self.analyze_NG(self.plot)
+                self.analyze_NG(ng)
             else:
                 self.s_print("No NG trials")
             if any(getIndexNames('9HP',self.marker_task_labels)): 
                 self.s_print("9HP")
-                self.analyze_9HP(self.plot)
+                self.analyze_9HP(ng)
             else:
                 self.s_print("No 9HP trials")
         else:
@@ -138,8 +138,8 @@ class SessionDataObject:
         self.calculate_support_tandem(plot)
         
     def analyze_9HP(self,plot):
-        # return
-        plot = True
+        if self.id == '002':
+            return
         hp_keys = getIndexNames('9HP',self.marker_task_labels)
         if plot:
             fig_right,axs_right = plt.subplots(2,2)
@@ -150,21 +150,31 @@ class SessionDataObject:
             data = self.marker_data[trial]
             data = data * 10**-3   # convert from mm to m
 
-            # remove the Right/Left from data. could just not name the markers this lol
-            new_names = []
-            for colname in data.columns:
-                if colname[0] == 'R':
-                    colname = colname[1:]
-                    right = True
-                    # if right side, then the first peak will be positivie
-                elif colname[0] == 'L':
-                    colname = colname[1:]
-                    right = False
-                new_names.append(colname)
-            data.columns = new_names
+            if 'R' in data.columns[8][0] or 'L' in data.columns[8][0]:
+                # remove the Right/Left from data. this is for the old data labeling method
+                new_names = []
+                for colname in data.columns:
+                    if colname[0] == 'R':
+                        colname = colname[1:]
+                        right = True
+                        # if right side, then the first peak will be positivie
+                    elif colname[0] == 'L':
+                        colname = colname[1:]
+                        right = False
+                    new_names.append(colname)
+                data.columns = new_names
 
-            if 'right' not in locals():
-                return
+                if 'right' not in locals():
+                    return
+            else:
+                #for new data labelling method
+                match self.marker_task_labels.loc[trial,'Side']:
+                    case 'R':
+                        right = True
+                    case 'L':
+                        right = False
+                    case _:
+                        self.s_print('No 9HP side found')
 
             #NOTE: flips y data if left hand....idk if i want to keep this
             if not right:
@@ -270,7 +280,7 @@ class SessionDataObject:
                 self.output_data.addData("9HPR","GR Ratio",np.array(gr_ratio))
             else:
                 self.output_data.addData("9HPL","GR Ratio",np.array(gr_ratio))           
-            print(gr_ratio)
+            # print(gr_ratio)
 
             # Peak Speed
             peak_speeds = v_peaks[1]['peak_heights']
@@ -317,6 +327,8 @@ class SessionDataObject:
                 else:
                     axx = axs_left
                 for i in range(len(t_start_peak)):
+                    if i >= len(t_stop_trough) or i >= len(t_start_peak) or i >= len(t_start_trough) or i >= len(t_stop_peak):
+                        continue
                     # plt.subplot(2,2,1)
                     t = np.linspace(0,1,t_stop_peak[i]-t_start_peak[i])
                     axx[0,0].plot(t,pointer_v[t_start_peak[i]:t_stop_peak[i]])
@@ -341,24 +353,26 @@ class SessionDataObject:
             plt.show()
 
     def analyze_NG(self,plot):
-        ng_layout_keys = getIndexNames('NGLayout',self.marker_task_labels)
+        if self.id == '002':
+            return
         ng_keys = getIndexNames('NG',self.marker_task_labels)
-        # plt.rcParams['figure.figsize'] = [10, 8]
-
-        # establish baseline position
-        # static_data = self.marker_data[ng_layout_keys[0]]
-        # static_data = static_data[['BR X', 'BR Y', 'BR Z', 'BL X', 'BL Y', 'BL Z', 'BT X','BT Y', 'BT Z']]  #TODO: establish only one layout in protocol
-        # block_x = np.mean((np.mean(static_data['BR X']),np.mean(static_data['BL X']),np.mean(static_data['BT X'])))
-        # block_y = np.mean(static_data['BT Y'])
-        # block_z = np.mean((np.mean(static_data['BR Z']),np.mean(static_data['BL Z'])))
-        # block_coords = (block_x,block_y,block_z)
         
         list_of_ends = []
         pplot_avg = np.zeros(200)
         tplot_avg = np.zeros(200)
         for i in range(len(ng_keys)):
             data = self.marker_data[ng_keys[i]]
-            if self.marker_task_labels['Side'][ng_keys[i]] == 'L':
+
+            # This is a really stupid way to fix the labelling
+            if data.columns[9][0] != 'R' and data.columns[9][0] != 'L':
+                data['RPOI X'] = data['POI X']
+                data['RPOI Y'] = data['POI Y']
+                data['RPOI Z'] = data['POI Z']
+                data['RTHU X'] = data['THU X']
+                data['RTHU Y'] = data['THU Y']
+                data['RTHU Z'] = data['THU Z']
+
+            elif self.marker_task_labels['Side'][ng_keys[i]] == 'L':
                 data['RPOI X'] = data['LPOI X']
                 data['RPOI Y'] = data['LPOI Y']
                 data['RPOI Z'] = data['LPOI Z']
@@ -384,6 +398,19 @@ class SessionDataObject:
                 list_of_ends = [174,245,245,171,182,156,162,171,165,191]
                 end = list_of_ends[i]
                 cc = '#d8b365'
+            elif self.id =='005':
+                list_of_starts = [152,196,183,142,229,175,168]
+                start = list_of_starts[i]
+                list_of_ends = [276,303,296,270,380,303,295]
+                end = list_of_ends[i]
+                cc = '#d8b365'
+            elif self.id =='006':
+                list_of_starts = [90,115,100,120,125,100,100,115,95,95]   #100 -> 171 could be shit
+                start = list_of_starts[i]
+                list_of_ends = [177,227,200,210,210,171,188,191,178,171]
+                end = list_of_ends[i]
+                cc = '#d8b365'
+
             else:
                 plt.plot(data['RPOI Z'])
                 plt.show()
@@ -484,8 +511,13 @@ class SessionDataObject:
                     ax.plot3D(data['RPOI X'][:end],data['RPOI Y'][:end],data['RPOI Z'][:end],c='purple',alpha=0.7)
                     ax.plot3D(data['RTHU X'][:end],data['RTHU Y'][:end],data['RTHU Z'][:end],c='g',alpha=0.7)
                 else:
-                    ax.plot3D(data['LPOI X'][:end],data['LPOI Y'][:end],data['LPOI Z'][:end],c='b',alpha=0.7)
-                    ax.plot3D(data['LTHU X'][:end],data['LTHU Y'][:end],data['LTHU Z'][:end],c='r',alpha=0.7)
+                    if 'LPOI X' in data.columns:
+                        ax.plot3D(data['LPOI X'][:end],data['LPOI Y'][:end],data['LPOI Z'][:end],c='b',alpha=0.7)
+                        ax.plot3D(data['LTHU X'][:end],data['LTHU Y'][:end],data['LTHU Z'][:end],c='r',alpha=0.7)
+                    else:
+                        ax.plot3D(data['POI X'][:end],data['POI Y'][:end],data['POI Z'][:end],c='b',alpha=0.7)
+                        ax.plot3D(data['THU X'][:end],data['THU Y'][:end],data['THU Z'][:end],c='r',alpha=0.7)
+
         if plot:
             plt.show()
 
@@ -497,8 +529,12 @@ class SessionDataObject:
                             plt.plot(data['RPOI X'][:end],data['RPOI Y'][:end],c='purple',alpha=0.7)
                             plt.plot(data['RTHU X'][:end],data['RTHU Y'][:end],c='g',alpha=0.7)
                         else:
-                            plt.plot(data['LPOI X'][:end],data['LPOI Y'][:end],c='b',alpha=0.7)
-                            plt.plot(data['LTHU X'][:end],data['LTHU Y'][:end],c='r',alpha=0.7)
+                            if 'LPOI X' in data.columns:
+                                plt.plot(data['LPOI X'][:end],data['LPOI Y'][:end],c='b',alpha=0.7)
+                                plt.plot(data['LTHU X'][:end],data['LTHU Y'][:end],c='r',alpha=0.7)
+                            else:
+                                plt.plot(data['POI X'][:end],data['POI Y'][:end],c='b',alpha=0.7)
+                                plt.plot(data['THU X'][:end],data['THU Y'][:end],c='r',alpha=0.7)
         if plot:
             plt.show()
          
@@ -539,8 +575,8 @@ class SessionDataObject:
             self.output_data.addData('Walking','Knee_Angle_L',l_knee[l_knee_peaks[0]])
             self.output_data.addData('Walking','Hip_Angle_R',r_hip[r_hip_peaks[0]])
             self.output_data.addData('Walking','Hip_Angle_L',l_hip[l_hip_peaks[0]])
-            print(walking_keys[i])
-            print(l_hip[l_hip_peaks[0]]) 
+            # print(walking_keys[i])
+            # print(l_hip[l_hip_peaks[0]]) 
             if plot:
                 plt.subplot(2,2,1)
                 plt.plot(l_hip)

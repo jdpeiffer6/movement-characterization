@@ -29,8 +29,12 @@ def getMarkerlessData(markerlessData, key, features: list):
     if np.any(step_lengths!=1):
         jumps = np.where(step_lengths!=1)[0]
         if jumps.shape[0] > 1:
-            print("Multiple discontunities detected...")
-        data = data.iloc[(jumps[0]+1):,:]
+            if np.any(jumps/data.shape[0]<.85) and np.any(jumps/data.shape[0]>.1):
+                print("["+key+"] Multiple discontunities detected...")
+        if jumps[0] < data.shape[0]/2:
+            data = data.iloc[(jumps[-1]+1):,:]
+        else:
+            data = data.iloc[:(jumps[0]+1),:]
 
     return data
 
