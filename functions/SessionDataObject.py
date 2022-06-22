@@ -550,13 +550,13 @@ class SessionDataObject:
             t=np.linspace(0,data.shape[0]/self.markerless_fs,num=data.shape[0])
             #right knee
             r_knee = data['Right Knee AnglesX'].values
-            r_knee_peaks = signal.find_peaks(r_knee,height=35)
+            r_knee_peaks = signal.find_peaks(r_knee,height=35,distance=50)
 
             #left knee
             l_knee = data['Left Knee AnglesX'].values
-            l_knee_peaks = signal.find_peaks(l_knee,height=35)
+            l_knee_peaks = signal.find_peaks(l_knee,height=35,distance=50)
 
-            hip_height = 10
+            hip_height = 5
             hip_distance = 50
             #right hip
             r_hip = data['Right Hip AnglesX'].values

@@ -10,7 +10,7 @@ path_to_subject2_post =  "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\o
 subject2_post = SessionDataObject(path_to_subject2_post,False,1.7,walking=False,ng=False)
 path_to_miguel = "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\002\\2022-01-28"
 miguel = SessionDataObject(path_to_miguel,False,1.75,walking=False,ng=False)
-labels=['#1BD9DE','#FCBF29','#FE8821','#d8b365','#5ab4ac','#d8b365']
+labels=['#1BD9DE','#FE8821','#FEA832','#d8b365','#5ab4ac','#d8b365']
 
 # %% Pelvis jerk
 control_jerk=miguel.getOutput('Walking','pelvis_jerk_step_normalized')
@@ -301,9 +301,9 @@ plt.show()
 a=stats.ttest_ind(tmt[0],tmt[1])
 print(f'Control R/L p: {a[1]}')
 a=stats.ttest_ind(tmt[2],tmt[3])
-print(f'CM 2 R/L p: {a[1]}')
+print(f'CM 2Pre R/L p: {a[1]}')
 a=stats.ttest_ind(tmt[4],tmt[5])
-print(f'CM 3 R/L p: {a[1]}')
+print(f'CM 2Post R/L p: {a[1]}')
 
 a=stats.ttest_ind(tmt[0],tmt[2])
 print(f'L p: {a[1]}')
@@ -331,16 +331,16 @@ plt.show()
 a=stats.ttest_ind(spt[0],spt[1])
 print(f'Control R/L p: {a[1]}')
 a=stats.ttest_ind(spt[2],spt[3])
-print(f'CM 2 R/L p: {a[1]}')
+print(f'CM 2Pre R/L p: {a[1]}')
 a=stats.ttest_ind(spt[4],spt[5])
-print(f'CM 2 R/L p: {a[1]}')
+print(f'CM 2Post R/L p: {a[1]}')
 
 # %% GR Ratio 
 grr = [miguel.getOutput('9HPL','GR Ratio'),miguel.getOutput('9HPR','GR Ratio'), \
     subject2.getOutput('9HPL','GR Ratio'),subject2.getOutput('9HPR','GR Ratio'), \
     subject2_post.getOutput('9HPL','GR Ratio'),subject2_post.getOutput('9HPR','GR Ratio')]
 grr[-1]=np.delete(grr[-1],np.argmax(grr[-1]))  #removes outlie
-bplot = plt.boxplot(grr,labels=["Control L","Control R","CM 2 L","CM 2 R","CM 3 L","CM 3 R"],patch_artist=True)
+bplot = plt.boxplot(grr,labels=["Control L","Control R","CM 2Pre L","CM 2Pre R","CM 2Post L","CM 2Post R"],patch_artist=True)
 j=0
 for i in bplot['boxes']:
     i.set_facecolor(labels[j])
@@ -352,7 +352,6 @@ print(f'C L: {np.mean(grr[0]):.2f} ({np.std(grr[0]):.2f})')
 print(f'C R: {np.mean(grr[1]):.2f} ({np.std(grr[1]):.2f})')
 print(f'S L: {np.mean(grr[2]):.2f} ({np.std(grr[2]):.2f})')
 print(f'S R: {np.mean(grr[3]):.2f} ({np.std(grr[3]):.2f})')
-plt.show()
 a=stats.ttest_ind(grr[0],grr[1])
 print(f'Control R/L p: {a[1]}')
 a=stats.ttest_ind(grr[2],grr[3])
@@ -361,6 +360,11 @@ a=stats.ttest_ind(grr[0],grr[2])
 print(f'L compare p: {a[1]}')
 a=stats.ttest_ind(grr[1],grr[2])
 print(f'R compare p: {a[1]}')
+a=stats.ttest_ind(grr[2],grr[4])
+print(f'Pre/post L compare p: {a[1]}')
+a=stats.ttest_ind(grr[3],grr[5])
+print(f'Pre/post R compare p: {a[1]}')
+plt.show()
 # %%
 ps = [miguel.getOutput('9HPL','Peak Speeds'),miguel.getOutput('9HPR','Peak Speeds'),
     subject2.getOutput('9HPL','Peak Speeds'),subject2.getOutput('9HPR','Peak Speeds'),
@@ -475,12 +479,8 @@ for trial in namez:
 # %% NATURAL GRASPING
 path_to_control =  "C:\\Users\\jd\\Box\\Movement-Characterization\\data\\output\\001\\2022-02-22"
 control = SessionDataObject(path_to_control,False,1.7)
-labels=['#130AF1','#FE8821','#FE8821','#FE8821','#17ACE8','#FEA832','#FEA832','#FEA832']
+labels=['#130AF1','#FE8821','#FE8821','#17ACE8','#FEA832','#FEA832','#FEA832']
 # plt.subplot(1,6,1)
-sub_pointer=subject.getOutput('NG','Pointer Dist')
-sub_pointer=sub_pointer[~np.isnan(sub_pointer)]
-sub_thumb=subject.getOutput('NG','Thumb Dist')
-sub_thumb=sub_thumb[~np.isnan(sub_thumb)]
 ctl_pointer=control.getOutput('NG','Pointer Dist')
 ctl_pointer=ctl_pointer[~np.isnan(ctl_pointer)]
 ctl_thumb=control.getOutput('NG','Thumb Dist')
@@ -489,26 +489,26 @@ sub2_pointer=subject2.getOutput('NG','Pointer Dist')
 sub2_pointer=sub2_pointer[~np.isnan(sub2_pointer)]
 sub2_thumb=subject2.getOutput('NG','Thumb Dist')
 sub2_thumb=sub2_thumb[~np.isnan(sub2_thumb)]
-sub3_pointer=subject2_post.getOutput('NG','Pointer Dist')
-sub3_pointer=sub3_pointer[~np.isnan(sub3_pointer)]
-sub3_thumb=subject2_post.getOutput('NG','Thumb Dist')
-sub3_thumb=sub3_thumb[~np.isnan(sub3_thumb)]
+sub2_post_pointer=subject2_post.getOutput('NG','Pointer Dist')
+sub2_post_pointer=sub2_post_pointer[~np.isnan(sub2_post_pointer)]
+sub2_post_thumb=subject2_post.getOutput('NG','Thumb Dist')
+sub2_post_thumb=sub2_post_thumb[~np.isnan(sub2_post_thumb)]
 
-data = [ctl_pointer,sub_pointer,sub2_pointer,sub3_pointer,ctl_thumb,sub_thumb,sub2_thumb,sub3_thumb]
+data = [ctl_pointer,sub2_pointer,sub2_post_pointer,ctl_thumb,sub2_thumb,sub2_post_thumb]
 print("Pointer Path: ")
 print(f'C: {np.mean(ctl_pointer):.2f} ({np.std(ctl_pointer):.2f})')
-print(f'S1: {np.mean(sub_pointer):.2f} ({np.std(sub_pointer):.2f})')
-print(f'S2: {np.mean(sub2_pointer):.2f} ({np.std(sub2_pointer):.2f})')
+print(f'S2 Pre: {np.mean(sub2_pointer):.2f} ({np.std(sub2_post_pointer):.2f})')
+print(f'S2 Post: {np.mean(sub2_post_pointer):.2f} ({np.std(sub2_post_pointer):.2f})')
 print("Thumb Path: ")
 print(f'C: {np.mean(ctl_thumb):.2f} ({np.std(ctl_thumb):.2f})')
-print(f'S1: {np.mean(sub_thumb):.2f} ({np.std(sub_thumb):.2f})')
-print(f'S2: {np.mean(sub2_thumb):.2f} ({np.std(sub2_thumb):.2f})')
+print(f'S2 Pre: {np.mean(sub2_thumb):.2f} ({np.std(sub2_thumb):.2f})')
+print(f'S2 Post: {np.mean(sub2_post_thumb):.2f} ({np.std(sub2_post_thumb):.2f})')
 a = stats.ttest_ind(data[0],data[1])
 print("Path Length:")
 print("Pointer p: %.5f"%a[1])
 a = stats.ttest_ind(data[2],data[3])
 print("Thumb p: %.5f"%a[1])
-bplot1 = plt.boxplot(data, labels=['C P','S1 P','S2 P','S3 P','C T','S1 T','S2 T','S3 T'],patch_artist=True,widths=0.5)
+bplot1 = plt.boxplot(data, labels=['C P','S2Pre P','S2Post P','C T','S2Pre T','S2Post T'],patch_artist=True,widths=0.5)
 # plt.violinplot(data)
 j=0
 for i in bplot1['boxes']:
@@ -543,32 +543,27 @@ plt.show()
 # plt.show()
 
 # plt.subplot(1,6,3)
-sub_pointer=subject.getOutput('NG','Pointer Jerk')
-sub_pointer=sub_pointer[~np.isnan(sub_pointer)]
-sub_thumb=subject.getOutput('NG','Thumb Jerk')
-sub_thumb=sub_thumb[~np.isnan(sub_thumb)]
 sub2_pointer=subject2.getOutput('NG','Pointer Jerk')
 sub2_pointer=sub2_pointer[~np.isnan(sub2_pointer)]
 sub2_thumb=subject2.getOutput('NG','Thumb Jerk')
 sub2_thumb=sub2_thumb[~np.isnan(sub2_thumb)]
-sub3_pointer=subject2_post.getOutput('NG','Pointer Jerk')
-sub3_pointer=sub3_pointer[~np.isnan(sub3_pointer)]
-sub3_pointer=np.delete(sub3_pointer,np.argmax(sub3_pointer))  #removes outlier
-sub3_thumb=subject2_post.getOutput('NG','Thumb Jerk')
-sub3_thumb=sub3_thumb[~np.isnan(sub3_thumb)]
+sub2_post_pointer=subject2_post.getOutput('NG','Pointer Jerk')
+sub2_post_pointer=sub2_post_pointer[~np.isnan(sub2_post_pointer)]
+sub2_post_thumb=subject2_post.getOutput('NG','Thumb Jerk')
+sub2_post_thumb=sub2_post_thumb[~np.isnan(sub2_post_thumb)]
 ctl_pointer=control.getOutput('NG','Pointer Jerk')
 ctl_pointer=ctl_pointer[~np.isnan(ctl_pointer)]
 ctl_thumb=control.getOutput('NG','Thumb Jerk')
 ctl_thumb=ctl_thumb[~np.isnan(ctl_thumb)]
-data = [ctl_pointer,sub_pointer,sub2_pointer,sub3_pointer,ctl_thumb,sub_thumb,sub2_thumb,sub3_thumb]
+data = [ctl_pointer,sub2_pointer,sub2_post_pointer,ctl_thumb,sub2_thumb,sub2_post_thumb]
 print("Pointer Jerk: ")
 print(f'C: {np.mean(ctl_pointer):.0f} ({np.std(ctl_pointer):.0f})')
-print(f'S1: {np.mean(sub_pointer):.0f} ({np.std(sub_pointer):.0f})')
-print(f'S2: {np.mean(sub2_pointer):.0f} ({np.std(sub2_pointer):.0f})')
+print(f'S2 Pre: {np.mean(sub2_pointer):.0f} ({np.std(sub2_pointer):.0f})')
+print(f'S2 Post: {np.mean(sub2_post_pointer):.0f} ({np.std(sub2_post_pointer):.0f})')
 print("Thumb Jerk: ")
 print(f'C: {np.mean(ctl_thumb):.0f} ({np.std(ctl_thumb):.0f})')
-print(f'S1: {np.mean(sub_thumb):.0f} ({np.std(sub_thumb):.0f})')
-print(f'S2: {np.mean(sub2_thumb):.0f} ({np.std(sub2_thumb):.0f})')
+print(f'S2 Pre: {np.mean(sub2_thumb):.0f} ({np.std(sub2_thumb):.0f})')
+print(f'S2 Post: {np.mean(sub2_post_thumb):.0f} ({np.std(sub2_post_thumb):.0f})')
 print("\nJerk:")
 a = stats.ttest_ind(data[0],data[1])
 print("Pointer p: %.5f"%a[1])
@@ -579,7 +574,7 @@ print("Thumb p: %.5f"%a[1])
 a = stats.ttest_ind(data[3],data[5])
 print("Thumb p: %.5f"%a[1])
 
-bplot3 = plt.boxplot(data, labels=['C P','S1 P','S2 P','S3 P','C T','S1 T','S2 T','S3 T'],patch_artist=True,widths=0.5)
+bplot3 = plt.boxplot(data, labels=['C P','S2Pre P','S2Post P','C T','S2Pre T','S2Post T'],patch_artist=True,widths=0.5)
 j=0
 for i in bplot3['boxes']:
     i.set_facecolor(labels[j])
@@ -589,20 +584,18 @@ plt.box(False)
 plt.show()
 
 # plt.subplot(1,6,4)
-sub_mga = subject.getOutput('NG','MGA')
-sub_mga = sub_mga[~np.isnan(sub_mga)]
 sub2_mga = subject2.getOutput('NG','MGA')
 sub2_mga = sub2_mga[~np.isnan(sub2_mga)]
-sub3_mga = subject2_post.getOutput('NG','MGA')
-sub3_mga = sub3_mga[~np.isnan(sub3_mga)]
+sub2_post_mga = subject2_post.getOutput('NG','MGA')
+sub2_post_mga = sub2_post_mga[~np.isnan(sub2_post_mga)]
 ctl_mga = control.getOutput('NG','MGA')
 ctl_mga = ctl_mga[~np.isnan(ctl_mga)]
-data=[ctl_mga,sub_mga,sub2_mga,sub3_mga]
+data=[ctl_mga,sub2_mga,sub2_post_mga]
 a = stats.ttest_ind(data[0],data[1])
 print("MGA p: %.5f"%a[1])
 a = stats.ttest_ind(data[0],data[2])
 print("MGA p: %.5f"%a[1])
-bplot4 = plt.boxplot(data,labels=['Control','Subject 1', 'Subject 2', 'Subject 3'],patch_artist=True,widths=0.5)
+bplot4 = plt.boxplot(data,labels=['Control','Subject 2', 'Subject 2 Post'],patch_artist=True,widths=0.5)
 j=0
 for i in bplot4['boxes']:
     i.set_facecolor(labels[j])
@@ -612,30 +605,27 @@ plt.box(False)
 plt.show()
 
 # plt.subplot(1,6,5)
-sub_mgat = subject.getOutput('NG','MGA_t')
-sub_mgat = sub_mgat[~np.isnan(sub_mgat)]
-sub_mgat = sub_mgat[~(sub_mgat<0.55)]
 sub2_mgat = subject2.getOutput('NG','MGA_t')
 sub2_mgat = sub2_mgat[~np.isnan(sub2_mgat)]
 sub2_mgat = sub2_mgat[~(sub2_mgat<0.55)]
-sub3_mgat = subject2_post.getOutput('NG','MGA_t')
-sub3_mgat = sub3_mgat[~np.isnan(sub3_mgat)]
-sub3_mgat = sub3_mgat[~(sub3_mgat<0.55)]
+sub2_post_mgat = subject2_post.getOutput('NG','MGA_t')
+sub2_post_mgat = sub2_post_mgat[~np.isnan(sub2_post_mgat)]
+sub2_post_mgat = sub2_post_mgat[~(sub2_post_mgat<0.55)]
 ctl_mgat = control.getOutput('NG','MGA_t')
 ctl_mgat = ctl_mgat[~np.isnan(ctl_mgat)]
 ctl_mgat = ctl_mgat[~(ctl_mgat<0.55)]
-data=[ctl_mgat,sub_mgat,sub2_mgat,sub3_mgat]
+data=[ctl_mgat,sub2_mgat,sub2_post_mgat]
 print("MGA t: ")
 print(f'C: {np.mean(ctl_mgat):.2f} ({np.std(ctl_mgat):.2f})')
-print(f'S1: {np.mean(sub_mgat):.2f} ({np.std(sub_mgat):.2f})')
-print(f'S2: {np.mean(sub2_mgat):.2f} ({np.std(sub2_mgat):.2f})')
+print(f'S2 Pre: {np.mean(sub2_mgat):.2f} ({np.std(sub2_mgat):.2f})')
+print(f'S2 Post: {np.mean(sub2_post_mgat):.2f} ({np.std(sub2_post_mgat):.2f})')
 a = stats.ttest_ind(data[0],data[1])
 print("MGA Time p: %.5f"%a[1])
 a = stats.ttest_ind(data[0],data[2])
 print("MGA Time p: %.5f"%a[1])
-a = stats.ttest_ind(data[0],data[3])
-print("MGA Time p: %.5f"%a[1])
-bplot5 = plt.boxplot(data,labels=['Control','Subject 1','Subject 2','Subject 3'],patch_artist=True,widths=0.5)
+a = stats.ttest_ind(data[1],data[2])
+print("MGA Time (pre/post) p: %.5f"%a[1])
+bplot5 = plt.boxplot(data,labels=['Control','Subject 2 Pre','Subject 2 Post'],patch_artist=True,widths=0.5)
 j=0
 for i in bplot5['boxes']:
     i.set_facecolor(labels[j])
