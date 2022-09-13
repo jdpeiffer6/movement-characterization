@@ -410,6 +410,12 @@ class SessionDataObject:
                 list_of_ends = [177,227,200,210,210,171,188,191,178,171]
                 end = list_of_ends[i]
                 cc = '#d8b365'
+            elif self.id =='007':
+                list_of_starts = [98,166,94,100,100,89,108,88,101,127]   #100 -> 171 could be shit
+                start = list_of_starts[i]
+                list_of_ends = [200,245,163,191,177,169,199,185,198,215]
+                end = list_of_ends[i]
+                cc = '#d8b365'
 
             else:
                 plt.plot(data['RPOI Z'])
@@ -1052,7 +1058,8 @@ class SessionDataObject:
                 maxind = anti_heel[0]
                 if minind < data.index[0]:
                     continue
-                
+                if minind == maxind:
+                    continue
                 nj, plotstuff = normJerk(data.loc[minind:maxind,'PelvisPosX'],data.loc[minind:maxind,'PelvisPosY'],data.loc[minind:maxind,'PelvisPosZ'],self.markerless_fs)
 
                 if plot:
@@ -1153,7 +1160,8 @@ class SessionDataObject:
                 maxind = anti_heel[0]
                 if minind < data.index[0]:
                     continue
-                
+                if minind == maxind:
+                    continue
                 nj, plotstuff = normJerk(data.loc[minind:maxind,'Distal ThoraxX'],data.loc[minind:maxind,'Distal ThoraxY'],data.loc[minind:maxind,'Distal ThoraxZ'],self.markerless_fs)
 
                 if plot:
